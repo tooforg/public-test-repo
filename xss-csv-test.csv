@@ -1,7 +1,0 @@
-Name,Email,Description,Link
-"<img src=x onerror=alert(1)>","test@test.com","Normal row","https://example.com"
-"Normal","<script>alert(document.domain)</script>","Script in email","https://example.com"
-"=cmd|'/C calc'!A1","test@test.com","CSV formula injection","https://example.com"
-"Normal","test@test.com","<svg onload=alert(1)>","javascript:alert(1)"
-"<a href=javascript:alert(1)>click</a>","test@test.com","JS href test","https://example.com"
-"Normal","test@test.com","<details open ontoggle=alert(1)><summary>x</summary></details>","https://example.com"
