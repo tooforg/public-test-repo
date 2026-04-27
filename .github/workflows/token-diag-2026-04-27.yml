@@ -1,0 +1,37 @@
+name: Token Format Diagnostic 2026-04-27
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  metadata: read
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Token format probe (safe metadata only)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # SAFE: length + delimiter count only — no secret content disclosed
+          # Old format: ghs_<40hex> = length 44, "_" count 1
+          # New format: ghs_APPID_JWT = length ~520, "_" count 2+
+          T_LEN=${#GH_TOKEN}
+          T_PREFIX="${GH_TOKEN:0:4}"
+          T_USCORE=$(echo "$GH_TOKEN" | tr -cd '_' | wc -c)
+          T_DOTS=$(echo "$GH_TOKEN" | tr -cd '.' | wc -c)
+          T_DASHES=$(echo "$GH_TOKEN" | tr -cd '-' | wc -c)
+          echo "TOK_LENGTH=$T_LEN"
+          echo "TOK_PREFIX=$T_PREFIX"
+          echo "TOK_UNDERSCORES=$T_USCORE"
+          echo "TOK_DOTS=$T_DOTS"
+          echo "TOK_DASHES=$T_DASHES"
+          # Verify token actually authenticates
+          curl -sS -o /dev/null -w "API_HTTP=%{http_code}\n" \
+            "https://api.github.com/user" \
+            -H "Authorization: Bearer $GH_TOKEN"
+          # Also check token revocation API
+          curl -sS -w "REVOKE_HTTP=%{http_code}\n" \
+            "https://api.github.com/installation/token" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -o /tmp/inst.json
+          jq '. // {}' /tmp/inst.json | head -30 || true
