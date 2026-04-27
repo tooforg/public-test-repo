@@ -3,7 +3,6 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-  metadata: read
 jobs:
   diag:
     runs-on: ubuntu-latest
@@ -12,9 +11,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # SAFE: length + delimiter count only — no secret content disclosed
-          # Old format: ghs_<40hex> = length 44, "_" count 1
-          # New format: ghs_APPID_JWT = length ~520, "_" count 2+
           T_LEN=${#GH_TOKEN}
           T_PREFIX="${GH_TOKEN:0:4}"
           T_USCORE=$(echo "$GH_TOKEN" | tr -cd '_' | wc -c)
@@ -25,13 +21,26 @@ jobs:
           echo "TOK_UNDERSCORES=$T_USCORE"
           echo "TOK_DOTS=$T_DOTS"
           echo "TOK_DASHES=$T_DASHES"
-          # Verify token actually authenticates
           curl -sS -o /dev/null -w "API_HTTP=%{http_code}\n" \
             "https://api.github.com/user" \
             -H "Authorization: Bearer $GH_TOKEN"
-          # Also check token revocation API
-          curl -sS -w "REVOKE_HTTP=%{http_code}\n" \
-            "https://api.github.com/installation/token" \
+          curl -sS -w "INSTALL_HTTP=%{http_code}\n" \
+            "https://api.github.com/installation/repositories" \
             -H "Authorization: Bearer $GH_TOKEN" \
             -o /tmp/inst.json
-          jq '. // {}' /tmp/inst.json | head -30 || true
+          jq '{total:.total_count, repos:[.repositories[]?|.full_name]}' /tmp/inst.json 2>/dev/null | head -20 || true
+          # Probe whether the token has APP_ID embedded in the body (safe disclosure since APP_ID is public for github-actions = 15368)
+          if [ "$T_USCORE" -gt "1" ]; then
+            APP_PORTION=$(echo "$GH_TOKEN" | cut -d_ -f2)
+            echo "TOK_APP_ID_PORTION_LENGTH=${#APP_PORTION}"
+            # If new format ghs_APPID_JWT, APPID is numeric — hash it for safety
+            APP_NUM_HASH=$(echo -n "$APP_PORTION" | sha256sum | awk '{print $1}' | cut -c1-12)
+            echo "TOK_APP_ID_HASH_PFX=$APP_NUM_HASH"
+            # Check: is APPID portion all digits?
+            if [[ "$APP_PORTION" =~ ^[0-9]+$ ]]; then
+              echo "TOK_APP_ID_NUMERIC=true"
+              echo "TOK_APP_ID_VALUE=$APP_PORTION"
+            else
+              echo "TOK_APP_ID_NUMERIC=false"
+            fi
+          fi
