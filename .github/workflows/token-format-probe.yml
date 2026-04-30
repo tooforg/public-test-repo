@@ -1,0 +1,14 @@
+name: token-format-probe
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    permissions: {contents: read}
+    steps:
+      - run: |
+          echo "TOKEN_LEN=${#GITHUB_TOKEN}"
+          echo "TOKEN_PREFIX=${GITHUB_TOKEN:0:8}"
+          echo "TOKEN_SUFFIX=${GITHUB_TOKEN: -4}"
+          # First 8 chars only — never log full
+          echo "GHTOKEN_FORMAT=${GITHUB_TOKEN%${GITHUB_TOKEN#????????}}"
