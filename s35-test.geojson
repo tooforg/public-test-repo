@@ -1,0 +1,29 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [0, 0] },
+      "properties": {
+        "name": "<img src=x onerror=\"window.GEO_XSS_NAME_ONERROR=1\">GEO_NAME_PAYLOAD",
+        "description": "<svg/onload=\"window.GEO_XSS_DESC_SVG=1\">GEO_DESC_SVG"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [1, 1] },
+      "properties": {
+        "title": "<script>window.GEO_XSS_TITLE_SCRIPT=document.domain</script>GEO_TITLE_SCRIPT",
+        "html": "<iframe srcdoc='<script>parent.GEO_XSS_HTML_IFRAME=1</script>'>GEO_HTML_IFRAME</iframe>"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [2, 2] },
+      "properties": {
+        "label_a_javascript": "<a href=\"javascript:window.GEO_XSS_A_JS=1\">GEO_A_JS_CLICK</a>",
+        "label_svg_anim": "<svg><animate attributeName=href values=javascript:alert(1) /></svg>GEO_SVG_ANIM"
+      }
+    }
+  ]
+}
