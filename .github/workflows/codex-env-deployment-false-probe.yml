@@ -5,7 +5,7 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     environment:
-      name: codex-env-branch-probe
+      name: codex-env-review-probe
       deployment: false
     steps:
       - name: report secret availability
