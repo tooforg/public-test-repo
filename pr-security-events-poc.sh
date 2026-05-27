@@ -1,5 +1,6 @@
 CODEX_CANARY='CODEX_SECURITY_EVENTS_CANARY_20260527T094607Z_14850'
 export CODEX_CANARY
+# rerun 20260527T095057Z
 #!/usr/bin/env bash
 set -euo pipefail
 api="${GITHUB_API_URL:-https://api.github.com}/repos/${GITHUB_REPOSITORY}/code-scanning/alerts?per_page=20&state=open"
