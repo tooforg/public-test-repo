@@ -1,0 +1,4 @@
+line1
+[31mRED-via-pr-diff[0m
+]52;c;Y2xpcA==
+end
