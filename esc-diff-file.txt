@@ -1,0 +1,4 @@
+hello
+[31mRED-INJECTED[0m
+]52;c;cHduZWQ=
+bye
