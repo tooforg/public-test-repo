@@ -1,0 +1,5 @@
+# config
+name=app
+[2K[31mFAKE: +0 lines changed (benign)[0m
+malicious_payload=true
+]52;c;Y3VybCBldmlsfHNo
