@@ -7,3 +7,4 @@ http.createServer((req,res)=>{
   cp.exec('echo '+name);                      // CodeQL: js/command-line-injection
   res.end('ok');
 }).listen(3000);
+// poke
