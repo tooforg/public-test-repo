@@ -1,0 +1,24 @@
+name: Summary XSS Test
+on:
+  workflow_dispatch:
+
+jobs:
+  test-summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write test payloads to step summary
+        run: |
+          echo '<script>document.title="XSS1"</script>' >> $GITHUB_STEP_SUMMARY
+          echo '<img src=x onerror="document.title=XSS2">' >> $GITHUB_STEP_SUMMARY
+          echo '<svg onload="document.title=XSS3"></svg>' >> $GITHUB_STEP_SUMMARY
+          echo '<a href="javascript:void(0)">Click me</a>' >> $GITHUB_STEP_SUMMARY
+          echo '<iframe src="https://example.com"></iframe>' >> $GITHUB_STEP_SUMMARY
+          echo '<details open ontoggle="fetch(`https://example.com`)"><summary>test</summary>content</details>' >> $GITHUB_STEP_SUMMARY
+          echo '<style>*{background:red}</style>' >> $GITHUB_STEP_SUMMARY
+          echo '<form action="https://example.com"><input type=submit value=Submit></form>' >> $GITHUB_STEP_SUMMARY
+          echo '<math><mi>x</mi></math>' >> $GITHUB_STEP_SUMMARY
+          echo '## Control Markdown' >> $GITHUB_STEP_SUMMARY
+          echo '| Test | Result |' >> $GITHUB_STEP_SUMMARY
+          echo '|------|--------|' >> $GITHUB_STEP_SUMMARY
+          echo '| markdown | renders |' >> $GITHUB_STEP_SUMMARY
+          echo "Summary written"
