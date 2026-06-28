@@ -1,8 +1,0 @@
-Name,Value,Status
-normal,hello world,active
-html-img,<img src=x onerror=alert(1)>,test
-html-script,<script>alert(2)</script>,test
-html-bold,<b>bold text</b>,test
-formula,=1+1,test
-link,<a href=x>click</a>,test
-
