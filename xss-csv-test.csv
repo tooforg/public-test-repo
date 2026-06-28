@@ -1,8 +1,8 @@
-Name,Value,Description
-normal,hello world,clean data
-html-tag,"<img src=x onerror=alert(1)>",html in cell
-script-tag,"<script>alert(2)</script>",script in cell
-link-tag,"<a href=""javascript:alert(3)"">click</a>",link in cell
-formula,=1+1,formula injection
-bold,"<b>bold</b>",bold tag
+Name,Value,Status
+normal,hello world,active
+html-img,<img src=x onerror=alert(1)>,test
+html-script,<script>alert(2)</script>,test
+html-bold,<b>bold text</b>,test
+formula,=1+1,test
+link,<a href=x>click</a>,test
 
