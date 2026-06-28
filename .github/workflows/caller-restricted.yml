@@ -1,0 +1,8 @@
+name: Caller with restricted perms
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  call-escalated:
+    uses: ./.github/workflows/reusable-elevated.yml
