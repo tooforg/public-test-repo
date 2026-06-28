@@ -1,8 +1,8 @@
 Name,Value,Description
-test1,<img src=x onerror=alert(1)>,normal
-test2,"<script>alert(2)</script>",quoted
-test3,=cmd|' /C calc'!A0,formula injection
-test4,"<a href=""javascript:alert(3)"">click</a>",link
-test5,"><img src=x onerror=alert(4)>,breakout
-test6,"+cmd|' /C calc'!A0",quoted formula
+normal,hello world,clean data
+html-tag,"<img src=x onerror=alert(1)>",html in cell
+script-tag,"<script>alert(2)</script>",script in cell
+link-tag,"<a href=""javascript:alert(3)"">click</a>",link in cell
+formula,=1+1,formula injection
+bold,"<b>bold</b>",bold tag
 
