@@ -1,0 +1,66 @@
+name: OIDC Claims Test
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test-oidc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request OIDC token with custom audience
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get OIDC token with default audience
+            try {
+              const token1 = await core.getIDToken();
+              const payload1 = JSON.parse(Buffer.from(token1.split('.')[1], 'base64').toString());
+              console.log('Default audience token claims:');
+              console.log(JSON.stringify({
+                iss: payload1.iss,
+                sub: payload1.sub,
+                aud: payload1.aud,
+                ref: payload1.ref,
+                sha: payload1.sha,
+                repository: payload1.repository,
+                repository_owner: payload1.repository_owner,
+                actor: payload1.actor,
+                event_name: payload1.event_name,
+                run_id: payload1.run_id,
+                run_attempt: payload1.run_attempt,
+                runner_environment: payload1.runner_environment,
+                enterprise: payload1.enterprise,
+                iat: payload1.iat,
+                exp: payload1.exp,
+                nbf: payload1.nbf,
+              }, null, 2));
+              
+              // Token lifetime
+              const lifetime = payload1.exp - payload1.iat;
+              console.log(`Token lifetime: ${lifetime} seconds (${lifetime/60} min)`);
+            } catch(e) {
+              console.log('Default audience token error:', e.message);
+            }
+            
+            // Get OIDC token with custom audience
+            try {
+              const token2 = await core.getIDToken('https://evil.example.com');
+              const payload2 = JSON.parse(Buffer.from(token2.split('.')[1], 'base64').toString());
+              console.log('\nCustom audience token claims:');
+              console.log(JSON.stringify({aud: payload2.aud, sub: payload2.sub}, null, 2));
+            } catch(e) {
+              console.log('Custom audience error:', e.message);
+            }
+            
+            // Get OIDC token with internal audience
+            try {
+              const token3 = await core.getIDToken('api.github.com');
+              const payload3 = JSON.parse(Buffer.from(token3.split('.')[1], 'base64').toString());
+              console.log('\napi.github.com audience claims:');
+              console.log(JSON.stringify({aud: payload3.aud, sub: payload3.sub}, null, 2));
+            } catch(e) {
+              console.log('api.github.com audience error:', e.message);
+            }
