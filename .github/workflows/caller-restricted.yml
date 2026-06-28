@@ -1,6 +1,0 @@
-name: Caller v2 (no permissions key)
-on:
-  workflow_dispatch:
-jobs:
-  call-elevated:
-    uses: ./.github/workflows/reusable-elevated.yml
