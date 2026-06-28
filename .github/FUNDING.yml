@@ -1,5 +1,0 @@
-github: toofikz1
-custom:
-  - "javascript:alert(document.domain)"
-  - "data:text/html,<h1>test</h1>"
-  - "https://example.com"
