@@ -1,8 +1,6 @@
-name: Caller with restricted perms
+name: Caller v2 (no permissions key)
 on:
   workflow_dispatch:
-permissions:
-  contents: read
 jobs:
-  call-escalated:
+  call-elevated:
     uses: ./.github/workflows/reusable-elevated.yml
