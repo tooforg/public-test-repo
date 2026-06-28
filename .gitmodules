@@ -1,0 +1,6 @@
+[submodule "test-sub"]
+	path = test-sub
+	url = javascript:alert(document.domain)
+[submodule "normal-sub"]
+	path = normal-sub
+	url = https://github.com/octocat/Hello-World
