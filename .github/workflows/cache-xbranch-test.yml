@@ -1,0 +1,44 @@
+name: Cache Cross-Branch Test
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Try restore-keys matching (will this find fork PR cache?)
+        uses: actions/cache/restore@v4
+        id: cache-test
+        with:
+          path: cache-dir
+          key: nonexistent-key-that-wont-match
+          restore-keys: |
+            poisoned-from-fork-
+            build-cache-main-v1-poisoned
+            
+      - name: Report result
+        if: always()
+        run: |
+          echo "Cache hit: ${{ steps.cache-test.outputs.cache-hit }}"
+          echo "Matched key: ${{ steps.cache-test.outputs.cache-matched-key }}"
+          if [ -f cache-dir/canary.txt ]; then
+            echo "!!! CACHE DATA FOUND FROM FORK !!!"
+            echo "DATA: $(cat cache-dir/canary.txt)"
+          else
+            echo "No cache data - fork cache not accessible from main (EXPECTED)"
+          fi
+          
+      - name: List all accessible caches via API
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const caches = await github.rest.actions.getActionsCacheList({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 20
+            });
+            console.log(`Total caches: ${caches.data.total_count}`);
+            for (const c of caches.data.actions_caches) {
+              console.log(`  key=${c.key} ref=${c.ref} size=${c.size_in_bytes}`);
+            }
