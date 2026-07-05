@@ -1,0 +1,45 @@
+name: Internal Auth Probe
+on: workflow_dispatch
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auth probe
+        run: |
+          INTERNAL="https://hosted-compute-request-orchestrator-prod-eus-01.githubapp.com"
+          
+          echo "=== OIDC Discovery ==="
+          curl -s "$INTERNAL/.well-known/openid-configuration" | python3 -m json.tool 2>/dev/null || curl -s "$INTERNAL/.well-known/openid-configuration"
+          
+          echo ""
+          echo "=== /vm/v1 unauthenticated (full body) ==="
+          curl -s -w "\nHTTP_STATUS:%{http_code}" "$INTERNAL/vm/v1"
+          
+          echo ""
+          echo "=== /vm/v1 with runtime token (full body) ==="
+          curl -s -w "\nHTTP_STATUS:%{http_code}" -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" "$INTERNAL/vm/v1"
+          
+          echo ""
+          echo "=== /vm/v1 with OIDC token ==="
+          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+            OIDC_TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://hosted-compute-ro" | python3 -c "import json,sys; print(json.load(sys.stdin).get('value',''))")
+            if [ -n "$OIDC_TOKEN" ]; then
+              curl -s -w "\nHTTP_STATUS:%{http_code}" -H "Authorization: Bearer $OIDC_TOKEN" "$INTERNAL/vm/v1"
+            else
+              echo "Failed to get OIDC token"
+            fi
+          fi
+          
+          echo ""
+          echo "=== /vm/v1 with OIDC token (github audience) ==="
+          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+            OIDC_TOKEN2=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://hosted-compute-request-orchestrator-prod-eus-01.githubapp.com" | python3 -c "import json,sys; print(json.load(sys.stdin).get('value',''))")
+            if [ -n "$OIDC_TOKEN2" ]; then
+              curl -s -w "\nHTTP_STATUS:%{http_code}" -H "Authorization: Bearer $OIDC_TOKEN2" "$INTERNAL/vm/v1"
+            fi
+          fi
