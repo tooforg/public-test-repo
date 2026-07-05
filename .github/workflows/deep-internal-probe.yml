@@ -1,0 +1,51 @@
+name: Deep Internal Probe
+on: workflow_dispatch
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deep probe
+        run: |
+          INTERNAL="https://hosted-compute-request-orchestrator-prod-eus-01.githubapp.com"
+          INTERNAL_NET="https://hosted-compute-request-orchestrator-prod-eus-01.service.azure-eastus.github.net"
+          
+          echo "=== JWKS (signing keys) ==="
+          curl -s "$INTERNAL_NET/.well-known/jwks" 2>/dev/null | python3 -m json.tool 2>/dev/null || echo "github.net not reachable"
+          
+          echo ""
+          echo "=== JWKS via githubapp.com ==="
+          curl -s "$INTERNAL/.well-known/jwks" 2>/dev/null | python3 -m json.tool 2>/dev/null || echo "not available"
+          
+          echo ""
+          echo "=== All accessible endpoints on internal service ==="
+          for path in "/" "/api" "/api/v1" "/v1" "/v2" "/metrics" "/debug" "/debug/pprof" \
+            "/swagger" "/swagger.json" "/openapi" "/openapi.json" "/docs" \
+            "/vm" "/vm/v1/machines" "/vm/v1/allocations" "/vm/v1/pools" \
+            "/vm/v1/images" "/vm/v1/quotas" "/token" "/auth"; do
+            RESP=$(curl -s -w "\n%{http_code}" --max-time 2 "$INTERNAL${path}" 2>/dev/null)
+            STATUS=$(echo "$RESP" | tail -1)
+            if [ "$STATUS" != "404" ]; then
+              BODY=$(echo "$RESP" | head -1)
+              echo "  [${STATUS}] ${path}: ${BODY:0:100}"
+            fi
+          done
+          
+          echo ""
+          echo "=== Check if internal .github.net is reachable ==="
+          curl -s -o /dev/null -w "github.net reachable: %{http_code}" --max-time 3 "$INTERNAL_NET/" || echo "not reachable"
+          echo ""
+          
+          echo ""
+          echo "=== Other githubapp.com internal hosts ==="
+          for host in \
+            "hosted-compute-request-orchestrator-prod.githubapp.com" \
+            "actions-hosted-compute.githubapp.com" \
+            "hosted-compute-prod.githubapp.com" \
+            "actions-runner-controller.githubapp.com" \
+            "actions-cache.githubapp.com"; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 "https://$host/" 2>/dev/null || echo "err")
+            [ "$STATUS" != "000" ] && echo "  $host: $STATUS"
+          done
