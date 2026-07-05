@@ -1,0 +1,35 @@
+name: Network Probe
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Network recon
+        run: |
+          echo "=== IP Address ==="
+          ip addr show | grep inet | head -5
+          echo ""
+          echo "=== Default Route ==="
+          ip route show default
+          echo ""
+          echo "=== DNS ==="
+          cat /etc/resolv.conf
+          echo ""
+          echo "=== Internal service reachability ==="
+          for host in "github.com" "api.github.com" "169.254.169.254" "10.0.0.1" "172.17.0.1"; do
+            timeout 2 bash -c "echo >/dev/tcp/$host/80" 2>/dev/null && echo "$host:80 REACHABLE" || echo "$host:80 blocked"
+          done
+          echo ""
+          echo "=== IMDS variations ==="
+          for url in "http://169.254.169.254/latest/meta-data/" "http://169.254.169.254/latest/meta-data/iam/security-credentials/" "http://metadata.google.internal/computeMetadata/v1/" "http://169.254.169.254/metadata/instance?api-version=2021-02-01"; do
+            RESP=$(timeout 2 curl -s -o /dev/null -w "%{http_code}" "$url" 2>/dev/null || echo "timeout")
+            echo "  $url: $RESP"
+          done
+          echo ""
+          echo "=== GitHub internal hosts ==="
+          for host in "ghcr.io" "npm.pkg.github.com" "maven.pkg.github.com" "nuget.pkg.github.com" "artifactcache.actions.githubusercontent.com" "results-receiver.actions.githubusercontent.com" "pipelinesghubeus5.actions.githubusercontent.com" "camo.githubusercontent.com"; do
+            IP=$(timeout 2 dig +short "$host" 2>/dev/null | head -1)
+            echo "  $host: $IP"
+          done
