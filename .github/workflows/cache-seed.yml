@@ -1,0 +1,30 @@
+name: Cache Seed
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create canary file
+        run: |
+          mkdir -p cache-dir
+          echo "BASE_REPO_SECRET_CANARY_$(date +%s)" > cache-dir/canary.txt
+          cat cache-dir/canary.txt
+      - name: Save cache
+        uses: actions/cache/save@v4
+        with:
+          path: cache-dir
+          key: build-cache-main-v1
+      - name: Dump token scope  
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = process.env.ACTIONS_RUNTIME_TOKEN;
+            const jwt = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+            console.log('=== RUNTIME TOKEN CLAIMS ===');
+            console.log('scp:', jwt.scp);
+            console.log('repositoryId:', jwt.ac ? JSON.parse(jwt.ac).Scope : 'n/a');
+            console.log('iss:', jwt.iss);
+            console.log('aud:', jwt.aud);
