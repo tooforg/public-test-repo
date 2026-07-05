@@ -1,0 +1,54 @@
+name: Broker Probe
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe broker service
+        run: |
+          BROKER="https://broker.actions.githubusercontent.com"
+          
+          echo "=== Broker root ==="
+          curl -sv --max-time 3 "$BROKER/" 2>&1 | grep -E "< HTTP|< content|< x-|< server|^[{<]" | head -10
+          
+          echo ""
+          echo "=== Broker endpoints ==="
+          for path in "/" "/health" "/healthz" "/api" "/api/v1" "/v1" "/negotiate" \
+            "/_apis" "/_apis/distributedtask" "/MessageQueue" "/message" \
+            "/broker" "/runner" "/jobs" "/pipelines" "/sessions"; do
+            RESP=$(curl -s -w "\n%{http_code}" --max-time 2 "$BROKER$path" 2>/dev/null)
+            STATUS=$(echo "$RESP" | tail -1)
+            BODY=$(echo "$RESP" | head -1)
+            if [ "$STATUS" != "000" ]; then
+              echo "  [${STATUS}] $path: ${BODY:0:100}"
+            fi
+          done
+          
+          echo ""
+          echo "=== Broker with runner token ==="
+          CREDS="/home/runner/actions-runner/cached/2.335.1/.credentials"
+          TOKEN=$(python3 -c "import json; d=json.load(open('$CREDS')); print(d.get('Data',{}).get('token',''))" 2>/dev/null)
+          
+          for path in "/" "/negotiate" "/api/v1/message" "/_apis/distributedtask/v1"; do
+            RESP=$(curl -s -w "\n%{http_code}" --max-time 2 \
+              -H "Authorization: Bearer $TOKEN" "$BROKER$path" 2>/dev/null)
+            STATUS=$(echo "$RESP" | tail -1)
+            BODY=$(echo "$RESP" | head -1)
+            echo "  [${STATUS}] $path: ${BODY:0:100}"
+          done
+          
+          echo ""
+          echo "=== Broker with ACTIONS_RUNTIME_TOKEN ==="
+          for path in "/" "/negotiate" "/_apis/distributedtask/v1"; do
+            RESP=$(curl -s -w "\n%{http_code}" --max-time 2 \
+              -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" "$BROKER$path" 2>/dev/null)
+            STATUS=$(echo "$RESP" | tail -1)
+            BODY=$(echo "$RESP" | head -1)
+            echo "  [${STATUS}] $path: ${BODY:0:100}"
+          done
+          
+          echo ""
+          echo "=== Broker response headers ==="
+          curl -sI --max-time 3 "$BROKER/" 2>/dev/null | head -15
