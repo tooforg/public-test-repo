@@ -1,0 +1,28 @@
+name: Fork PR Env Secret Test
+on:
+  pull_request:
+    types: [opened, synchronize]
+permissions:
+  contents: read
+jobs:
+  env-test:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Check environment secret
+        run: |
+          echo "=== Fork PR Environment Secret Test ==="
+          echo "Event: ${{ github.event_name }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Fork: ${{ github.event.pull_request.head.repo.fork }}"
+          echo "Head repo: ${{ github.event.pull_request.head.repo.full_name }}"
+          SECRET_LEN=$(echo -n "$TEST_SECRET_VALUE" | wc -c)
+          echo "TEST_SECRET length: $SECRET_LEN"
+          if [ "$SECRET_LEN" -gt 0 ]; then
+            echo "!!! ENVIRONMENT SECRET ACCESSIBLE FROM FORK PR !!!"
+            echo "Secret first char: $(echo -n "$TEST_SECRET_VALUE" | head -c 1)"
+          else
+            echo "No secret available (expected for fork PRs)"
+          fi
+        env:
+          TEST_SECRET_VALUE: ${{ secrets.TEST_SECRET }}
