@@ -1,0 +1,7 @@
+name: Reusable WF Caller
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  call-reusable:
+    uses: toofikz4/public-test-repo/.github/workflows/reusable-probe.yml@main
