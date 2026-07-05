@@ -1,0 +1,39 @@
+name: Runner Env Probe
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for pre-installed credentials
+        run: |
+          echo "=== HOME directory ==="
+          ls -la ~ 2>/dev/null || true
+          echo ""
+          echo "=== .docker/config.json ==="
+          cat ~/.docker/config.json 2>/dev/null || echo "not found"
+          echo ""
+          echo "=== .npmrc ==="
+          cat ~/.npmrc 2>/dev/null || echo "not found"
+          echo ""
+          echo "=== .netrc ==="
+          cat ~/.netrc 2>/dev/null || echo "not found"
+          echo ""
+          echo "=== SSH keys ==="
+          ls -la ~/.ssh/ 2>/dev/null || echo "not found"
+          echo ""
+          echo "=== AWS credentials ==="
+          cat ~/.aws/credentials 2>/dev/null || echo "not found"
+          echo ""
+          echo "=== Azure credentials ==="
+          cat ~/.azure/*.json 2>/dev/null || echo "not found"
+          echo ""
+          echo "=== GCP credentials ==="
+          cat ~/.config/gcloud/*.json 2>/dev/null || echo "not found"
+          echo ""
+          echo "=== Cloud metadata ==="
+          curl -s --max-time 2 http://169.254.169.254/latest/meta-data/ 2>/dev/null || echo "blocked"
+          echo ""
+          echo "=== GitHub-specific env ==="
+          env | grep -iE 'GITHUB_|ACTIONS_|RUNNER_' | sort
