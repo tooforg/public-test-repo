@@ -1,0 +1,81 @@
+name: Post-PR Handler
+on:
+  workflow_run:
+    workflows: ["Trust Boundary Probe"]
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.event == 'pull_request'
+    steps:
+      - name: Context dump
+        run: |
+          echo "=== WORKFLOW_RUN CONTEXT ==="
+          echo "triggering workflow: ${{ github.event.workflow_run.name }}"
+          echo "triggering head_sha: ${{ github.event.workflow_run.head_sha }}"
+          echo "triggering head_branch: ${{ github.event.workflow_run.head_branch }}"
+          echo "triggering head_repo: ${{ github.event.workflow_run.head_repository.full_name }}"
+          echo "triggering actor: ${{ github.event.workflow_run.actor.login }}"
+          echo "triggering event: ${{ github.event.workflow_run.event }}"
+          echo "triggering conclusion: ${{ github.event.workflow_run.conclusion }}"
+          echo "own repo: ${{ github.repository }}"
+          echo "own actor: ${{ github.actor }}"
+          echo "own ref: ${{ github.ref }}"
+          
+      - name: Token scope in workflow_run
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // THIS runs in the BASE repo context, triggered by fork PR
+            console.log('=== BASE REPO TOKEN SCOPE (from workflow_run) ===');
+            
+            // Can we write to the base repo?
+            try {
+              const result = await github.rest.repos.get({ owner: context.repo.owner, repo: context.repo.repo });
+              console.log('Repo access:', result.status, result.data.permissions);
+            } catch(e) { console.log('Repo access error:', e.status); }
+            
+            // Can we list secrets?
+            try {
+              const s = await github.rest.actions.listRepoSecrets({ owner: context.repo.owner, repo: context.repo.repo });
+              console.log('Secrets:', s.data.total_count, s.data.secrets?.map(x=>x.name));
+            } catch(e) { console.log('Secrets:', e.status, e.message.substring(0,80)); }
+            
+            // Can we access the private repo?
+            try {
+              const p = await github.rest.repos.get({ owner: context.repo.owner, repo: 'private-test-repo' });
+              console.log('PRIVATE REPO:', p.status, p.data.full_name, '!!!');
+            } catch(e) { console.log('Private repo:', e.status); }
+            
+            // Download artifacts from triggering workflow
+            console.log('\n=== TRIGGERING WORKFLOW ARTIFACTS ===');
+            try {
+              const arts = await github.rest.actions.listWorkflowRunArtifacts({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: context.payload.workflow_run.id
+              });
+              console.log('Artifacts from trigger:', arts.data.total_count);
+              for (const a of arts.data.artifacts) {
+                console.log(`  ${a.name} (${a.size_in_bytes} bytes)`);
+              }
+            } catch(e) { console.log('Artifact list error:', e.status); }
+
+      - name: Cache read in workflow_run context
+        uses: actions/cache/restore@v4
+        id: cache-wfr
+        with:
+          path: cache-dir
+          key: build-cache-main-v1
+          restore-keys: build-cache-
+      
+      - name: Cache result
+        if: always()
+        run: |
+          echo "workflow_run cache hit: ${{ steps.cache-wfr.outputs.cache-hit }}"
+          if [ -f cache-dir/canary.txt ]; then
+            echo "Cache data: $(cat cache-dir/canary.txt)"
+          fi
