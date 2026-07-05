@@ -1,0 +1,25 @@
+name: Azure IMDS Probe
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Azure IMDS probe
+        run: |
+          echo "=== Azure IMDS ==="
+          # Azure IMDS requires Metadata header
+          curl -s -H "Metadata: true" "http://169.254.169.254/metadata/instance?api-version=2021-02-01" | head -500
+          echo ""
+          echo "=== Azure IMDS - Identity ==="
+          curl -s -H "Metadata: true" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/" | head -200
+          echo ""
+          echo "=== Azure IMDS - versions ==="
+          curl -s "http://169.254.169.254/metadata/versions" | head -100
+          echo ""
+          echo "=== Azure Wireserver ==="
+          curl -s --max-time 2 "http://168.63.129.16/" | head -100
+          echo ""
+          echo "=== Azure wireserver agent ==="
+          curl -s --max-time 2 "http://168.63.129.16:80/machine?comp=goalstate" -H "x-ms-version: 2012-11-30" | head -100
