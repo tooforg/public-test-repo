@@ -1,0 +1,33 @@
+name: OIDC Claim Inspector
+on:
+  workflow_dispatch:
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  inspect-oidc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get OIDC token and decode claims
+        run: |
+          # Request the OIDC token
+          TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r '.value')
+          
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "Failed to get OIDC token"
+            exit 1
+          fi
+          
+          # Decode the JWT payload (base64url -> base64 -> json)
+          PAYLOAD=$(echo "$TOKEN" | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null)
+          
+          echo "=== OIDC Token Claims ==="
+          echo "$PAYLOAD" | jq '.'
+          
+          echo ""
+          echo "=== Key claims for IAM matching ==="
+          echo "sub: $(echo "$PAYLOAD" | jq -r '.sub')"
+          echo "ref: $(echo "$PAYLOAD" | jq -r '.ref')"
+          echo "repository: $(echo "$PAYLOAD" | jq -r '.repository')"
+          echo "job_workflow_ref: $(echo "$PAYLOAD" | jq -r '.job_workflow_ref')"
