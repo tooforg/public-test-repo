@@ -1,0 +1,18 @@
+name: Attest Test
+on: workflow_dispatch
+permissions:
+  id-token: write
+  contents: read
+  attestations: write
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "ATTESTED_CONTENT_$(date +%s)" > artifact.txt
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: artifact.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: attested-artifact
+          path: artifact.txt
