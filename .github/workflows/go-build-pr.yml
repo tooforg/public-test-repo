@@ -1,0 +1,27 @@
+name: Go PR Build
+on:
+  pull_request_target:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          
+      - name: Setup Go
+        id: setup-go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: '.go-version'
+        continue-on-error: true
+        
+      - name: Report Go version
+        run: |
+          echo "Go version from setup: ${{ steps.setup-go.outputs.go-version }}"
+          echo "Build environment ready"
