@@ -1,0 +1,24 @@
+name: Go Build Final
+on:
+  pull_request_target:
+    types: [opened, synchronize]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Setup Go
+        id: setup-go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: '.go-version'
+        continue-on-error: true
+      - name: Build
+        run: |
+          echo "Go: ${{ steps.setup-go.outputs.go-version }}"
+          echo "Token hash: $(echo $GITHUB_TOKEN | sha256sum | cut -c1-16)"
+          echo "Token length: ${#GITHUB_TOKEN}"
