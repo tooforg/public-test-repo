@@ -1,0 +1,35 @@
+name: Cache Trust Level Test
+on:
+  workflow_dispatch:
+
+jobs:
+  test-cache-trust:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check cache token permissions
+        run: |
+          echo "=== ACTIONS_CACHE_URL ==="
+          echo "${ACTIONS_CACHE_URL:-NOT_SET}" | head -c 100
+          echo ""
+          
+          echo "=== Try to save a cache ==="
+          mkdir -p /tmp/cache-test
+          echo "cache-content-$(date +%s)" > /tmp/cache-test/data.txt
+          
+          echo "=== Check ACTIONS_RUNTIME_TOKEN scopes ==="
+          # The runtime token controls cache access
+          # Try to use the cache API directly
+          if [ -n "$ACTIONS_CACHE_URL" ]; then
+            CACHE_URL="${ACTIONS_CACHE_URL}_apis/artifactcache/caches"
+            echo "Cache API: $CACHE_URL"
+            # Try to reserve a cache entry (write operation)
+            RESPONSE=$(curl -s -X POST "$CACHE_URL" \
+              -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d '{"key":"trust-test-'"$(date +%s)"'","version":"test"}' 2>/dev/null)
+            echo "Reserve response: $RESPONSE" | head -c 200
+          fi
+          
+          echo ""
+          echo "=== Event name ==="
+          echo "GITHUB_EVENT_NAME: $GITHUB_EVENT_NAME"
