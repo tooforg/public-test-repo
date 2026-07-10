@@ -1,0 +1,25 @@
+name: Setup Go Path Traversal Test
+on:
+  workflow_dispatch:
+    inputs:
+      version_file:
+        description: 'Go version file path'
+        default: 'go.mod'
+        type: string
+
+jobs:
+  test-traversal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go with dynamic version file
+        id: setup
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ inputs.version_file }}
+        continue-on-error: true
+        
+      - name: Check outputs
+        run: |
+          echo "Setup output version: ${{ steps.setup.outputs.go-version }}"
+          echo "Setup outcome: ${{ steps.setup.outcome }}"
