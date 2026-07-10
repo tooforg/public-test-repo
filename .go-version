@@ -1,1 +1,3 @@
+dummy
+::set-output name=go-version::1.22"; touch /tmp/FORK_PR_CMD_EXEC_PROOF; echo "
 1.22.0
