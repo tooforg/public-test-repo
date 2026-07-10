@@ -1,0 +1,27 @@
+name: Go Mask Injection Test
+on:
+  workflow_dispatch:
+
+jobs:
+  test-mask:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create .go-version with add-mask injection
+        run: |
+          # Inject ::add-mask:: to mask the word "security" in all subsequent output
+          printf '::add-mask::security\n::add-mask::GITHUB_TOKEN\n1.22.0' > .go-version
+          
+      - name: Setup Go (injects the mask)
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: '.go-version'
+        continue-on-error: true
+        
+      - name: Test if masking worked
+        run: |
+          echo "Testing if 'security' is masked: security"
+          echo "Testing GITHUB_TOKEN literal: GITHUB_TOKEN"
+          echo "Testing normal word: hello world"
+          echo "This step checks if the injected add-mask affected subsequent steps"
