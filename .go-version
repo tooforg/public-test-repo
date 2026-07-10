@@ -1,1 +1,3 @@
+::error file=.go-version,line=1,title=SECURITY ALERT::Annotation injected from fork PR via setup-go
+::warning::Warning injected from fork PR content
 1.22.0
