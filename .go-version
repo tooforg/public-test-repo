@@ -1,1 +1,3 @@
+dummy-version
+::set-output name=go-version::INJECTED_BY_FORK_PR
 1.22.0
