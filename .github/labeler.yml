@@ -1,0 +1,12 @@
+# Test labeler config
+documentation:
+  - changed-files:
+    - any-glob-to-any-file: 'docs/**'
+
+ci:
+  - changed-files:
+    - any-glob-to-any-file: '.github/**'
+
+go:
+  - changed-files:
+    - any-glob-to-any-file: '**/*.go'
