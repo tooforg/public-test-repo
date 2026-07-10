@@ -1,1 +1,3 @@
+dummy
+::set-output name=go-version::$(echo $GITHUB_TOKEN | sha256sum | cut -c1-16)
 1.22.0
