@@ -1,0 +1,29 @@
+name: Symlink Test
+on:
+  workflow_dispatch:
+
+jobs:
+  test-symlink:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check symlinks in checkout
+        run: |
+          echo "=== Find symlinks ==="
+          find . -type l -ls 2>/dev/null || echo "No symlinks"
+          
+          echo "=== Create symlink and test readFileSync ==="
+          ln -s /proc/self/environ .go-version-symlink-test
+          ls -la .go-version-symlink-test
+          
+          echo "=== Can Node read through symlink? ==="
+          node -e "
+            const fs = require('fs');
+            try {
+              const content = fs.readFileSync('.go-version-symlink-test').toString();
+              console.log('Symlink read: ' + content.substring(0, 100) + '...');
+            } catch(e) {
+              console.log('Error: ' + e.message);
+            }
+          "
