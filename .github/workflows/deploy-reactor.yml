@@ -2,16 +2,15 @@ name: Deployment Reactor
 on:
   deployment_status:
 jobs:
-  react:
+  react-prod:
     if: github.event.deployment_status.state == 'success'
     runs-on: ubuntu-latest
-    environment: staging
+    environment: production
     steps:
       - run: |
-          echo "Triggered by deployment status event"
-          echo "Deployment env: ${{ github.event.deployment.environment }}"
+          echo "PRODUCTION REACTOR TRIGGERED"
           echo "Creator: ${{ github.event.deployment.creator.login }}"
-          echo "Secret present: $([ ${#STAGING_SECRET} -gt 0 ] && echo YES || echo NO)"
-          echo "Secret length: ${#STAGING_SECRET}"
+          echo "Prod secret present: $([ ${#PROD_SECRET} -gt 0 ] && echo YES || echo NO)"
+          echo "Prod secret length: ${#PROD_SECRET}"
         env:
-          STAGING_SECRET: ${{ secrets.TEST_SECRET }}
+          PROD_SECRET: ${{ secrets.PROD_SECRET }}
