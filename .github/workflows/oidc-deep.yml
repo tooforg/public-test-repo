@@ -1,1 +1,23 @@
-test
+name: OIDC Deep
+on: [workflow_dispatch]
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  oidc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const t = await core.getIDToken();
+            const p = JSON.parse(Buffer.from(t.split(".")[1],"base64url").toString());
+            core.info("CLAIMS:" + JSON.stringify(p));
+            for (const a of ["sts.amazonaws.com","custom","../x","a]injected"]) {
+              try {
+                const t2 = await core.getIDToken(a);
+                const p2 = JSON.parse(Buffer.from(t2.split(".")[1],"base64url").toString());
+                core.info("AUD_"+a+":sub="+p2.sub+"|aud="+JSON.stringify(p2.aud));
+              } catch(e) { core.info("AUD_"+a+":ERR="+e.message); }
+            }
+
