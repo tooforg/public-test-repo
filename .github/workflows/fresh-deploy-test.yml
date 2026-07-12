@@ -1,0 +1,9 @@
+name: Fresh Deploy Test
+on:
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - run: echo "Deployed at $(date) by ${{ github.triggering_actor }}"
