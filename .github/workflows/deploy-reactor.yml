@@ -1,0 +1,17 @@
+name: Deployment Reactor
+on:
+  deployment_status:
+jobs:
+  react:
+    if: github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - run: |
+          echo "Triggered by deployment status event"
+          echo "Deployment env: ${{ github.event.deployment.environment }}"
+          echo "Creator: ${{ github.event.deployment.creator.login }}"
+          echo "Secret present: $([ ${#STAGING_SECRET} -gt 0 ] && echo YES || echo NO)"
+          echo "Secret length: ${#STAGING_SECRET}"
+        env:
+          STAGING_SECRET: ${{ secrets.TEST_SECRET }}
