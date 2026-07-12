@@ -1,0 +1,33 @@
+name: Deploy Approval Test
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target env'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    environment: production
+    if: inputs.target == 'production'
+    steps:
+      - run: echo "Production deploy with GITHUB_TOKEN permissions=$(jq -r '.permissions' $GITHUB_EVENT_PATH 2>/dev/null || echo unknown)"
+      - run: echo "Actor=${{ github.actor }} Triggering_actor=${{ github.triggering_actor }}"
+      - run: echo "Environment secrets present=$([ -n '${{ secrets.TEST_SECRET }}' ] && echo yes || echo no)"
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    if: inputs.target == 'staging'
+    steps:
+      - run: |
+          echo "Staging deploy"
+          echo "TEST_SECRET length=${#TEST_SECRET}"
+        env:
+          TEST_SECRET: ${{ secrets.TEST_SECRET }}
