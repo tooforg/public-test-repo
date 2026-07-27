@@ -1,0 +1,3 @@
+line one
+line two FIXED by suggestion canary-apply-test-abc123def456
+line three
