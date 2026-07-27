@@ -1,1 +1,3 @@
-line one\nline two original\nline three
+line one
+line two original
+line three
