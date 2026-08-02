@@ -1,0 +1,20 @@
+name: Setup Python TOML Test
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-toml-injection:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python from pyproject
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: pyproject.toml
+      - name: Check annotations
+        run: |
+          echo "If you see a WARNING annotation 'INJECTED_BY_TOML', the injection worked"
+          echo "Python version: $(python --version 2>&1 || echo 'not installed')"
