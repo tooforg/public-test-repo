@@ -1,0 +1,15 @@
+name: 'Self Reporter'
+description: 'Reports the commit it was loaded from'
+runs:
+  using: 'composite'
+  steps:
+    - run: |
+        echo "GITHUB_SHA=$GITHUB_SHA"
+        echo "GITHUB_REF=$GITHUB_REF"
+        echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"
+        echo "GITHUB_ACTION_PATH=$GITHUB_ACTION_PATH"
+        echo "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME"
+        echo "HEAD_SHA=${{ github.event.pull_request.head.sha || 'N/A' }}"
+        echo "BASE_SHA=${{ github.event.pull_request.base.sha || 'N/A' }}"
+        ls -la $GITHUB_ACTION_PATH/ 2>/dev/null || echo "Cannot list action path"
+      shell: bash
