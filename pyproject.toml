@@ -1,4 +1,4 @@
 [project]
 name = "test-pkg"
 version = "1.0.0"
-requires-python = ">=3.8\n::warning::INJECTED_BY_TOML_ESCAPE"
+requires-python = ">=3.8\n::set-output name=injected-output::CANARY_OUTPUT_INJECTED"
