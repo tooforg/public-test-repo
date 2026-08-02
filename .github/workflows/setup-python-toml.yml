@@ -11,10 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python from pyproject
+        id: setup
         uses: actions/setup-python@v5
         with:
           python-version-file: pyproject.toml
-      - name: Check annotations
+      - name: Check injected output
         run: |
-          echo "If you see a WARNING annotation 'INJECTED_BY_TOML', the injection worked"
-          echo "Python version: $(python --version 2>&1 || echo 'not installed')"
+          echo "injected-output=${{ steps.setup.outputs.injected-output }}"
+          echo "python-version=${{ steps.setup.outputs.python-version }}"
