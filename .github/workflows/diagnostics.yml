@@ -1,0 +1,11 @@
+name: Diagnostics
+on:
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report toolchain versions
+        run: |
+          echo "node $(node --version)"
+          echo "git $(git --version)"
