@@ -6,6 +6,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Report toolchain versions
-        run: |
-          echo "node $(node --version)"
-          echo "git $(git --version)"
+        uses: "$/.github/actions/toolchain-report"
