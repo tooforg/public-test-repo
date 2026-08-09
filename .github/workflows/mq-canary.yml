@@ -1,0 +1,22 @@
+name: MQ Canary Workflow
+on:
+  push:
+    branches:
+      - 'gh-readonly-queue/**'
+      - main
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Canary from modified workflow
+        env:
+          SECRET_AVAILABLE: ${{ secrets.DEPLOY_REVIEWER != '' }}
+        run: |
+          echo "CANARY: Tycho Groot ORD-0140-096"
+          echo "workflow_origin: mq-workflow-inject branch (PR-added workflow)"
+          echo "event: $GITHUB_EVENT_NAME"
+          echo "ref: $GITHUB_REF"
+          echo "sha: $GITHUB_SHA"
+          echo "secret_available: $SECRET_AVAILABLE"
+          echo "token_permissions: ${{ toJSON(github.token) }}"
