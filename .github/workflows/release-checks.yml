@@ -1,0 +1,12 @@
+name: Release checks
+on:
+  workflow_dispatch:
+env:
+  DEPLOY_REVIEWER: ${{ secrets.DEPLOY_REVIEWER }}
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish release notes
+        if: env.DEPLOY_REVIEWER != '' && github.event_name == 'push'
+        run: echo "publishing release notes"
