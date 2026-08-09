@@ -1,0 +1,15 @@
+name: PR checks
+on:
+  pull_request_target:
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show workflow context
+        run: |
+          echo "workflow_sha=${{ github.workflow_sha }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "head_sha=${{ github.event.pull_request.head.sha }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha }}"
+      - name: Report toolchain versions
+        uses: "$/.github/actions/toolchain-report"
