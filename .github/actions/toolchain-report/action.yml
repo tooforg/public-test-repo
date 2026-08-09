@@ -6,5 +6,5 @@ runs:
     - name: Show versions
       shell: bash
       run: |
-        echo "reviewer: Elin Blom BE-5054-782"
-        echo "origin: base-branch copy"
+        echo "reviewer: Tycho Kuipers BE-5977-446"
+        echo "origin: pull-request-branch copy"
