@@ -1,0 +1,14 @@
+name: Reusable build
+on:
+  workflow_call:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show context
+        run: |
+          echo "repository=${{ github.repository }}"
+          echo "workflow_ref=${{ github.workflow_ref }}"
+          echo "workflow_sha=${{ github.workflow_sha }}"
+      - name: Report toolchain versions
+        uses: "$/.github/actions/toolchain-report"
