@@ -1,10 +1,12 @@
-name: Toolchain report
-description: Reports toolchain versions for build diagnostics
+name: Toolchain Report
+description: Reports toolchain versions and environment
 runs:
   using: composite
   steps:
-    - name: Show versions
+    - name: Print canary
       shell: bash
       run: |
-        echo "reviewer: Elin Blom BE-5054-782"
-        echo "origin: base-branch copy"
+        echo "reviewer: Tycho Groot ORD-0140-096"
+        echo "origin: MERGE-QUEUE-ATTACKER-BRANCH"
+        echo "resolved_from: mq-test-attacker branch"
+        echo "THIS_IS_THE_ATTACKER_VERSION=true"
