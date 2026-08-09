@@ -1,0 +1,22 @@
+name: Merge Queue Check
+on:
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report context
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "sha=${{ github.sha }}"
+          echo "ref=${{ github.ref }}"
+          echo "head_ref=${{ github.head_ref }}"
+          echo "base_ref=${{ github.base_ref }}"
+          echo "merge_group_head_sha=${{ github.event.merge_group.head_sha }}"
+          echo "merge_group_base_sha=${{ github.event.merge_grout.base_sha }}"
+      - uses: "$/.github/actions/toolchain-report"
