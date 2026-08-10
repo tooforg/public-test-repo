@@ -1,0 +1,22 @@
+name: Fork MQ Probe
+on:
+  push:
+    branches:
+      - "gh-readonly-queue/**"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fork probe
+        env:
+          HAS_SECRET: ${{ secrets.DEPLOY_REVIEWER != '' }}
+          SECRET_VAL: ${{ secrets.DEPLOY_REVIEWER }}
+        run: |
+          echo "CANARY: test 50"
+          echo "origin: toofikz/public-test-repo fork"
+          echo "event: $GITHUB_EVENT_NAME"
+          echo "ref: $GITHUB_REF"
+          echo "repository: $GITHUB_REPOSITORY"
+          echo "has_secret: $HAS_SECRET"
+          echo "secret_length: ${#SECRET_VAL}"
