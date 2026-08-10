@@ -1,4 +1,4 @@
-name: Fork Write Chain Test
+name: Fork Write Proof
 on:
   push:
     branches:
@@ -6,28 +6,60 @@ on:
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
-  chain-probe:
+  write-proof:
     runs-on: ubuntu-latest
     steps:
-      - name: Check token scope
+      - name: Prove write access
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('CHAIN_CANARY_2: Luuk Brouwer MNT-8842-109');
+            console.log('repository:', context.repo.owner + '/' + context.repo.repo);
+            console.log('event:', context.eventName);
+            console.log('ref:', context.ref);
+            
+            // Create a tag to prove contents:write works
+            const tagName = 'write-proof-' + context.runId;
+            console.log('Creating tag:', tagName);
+            try {
+              const result = await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'refs/tags/' + tagName,
+                sha: context.sha
+              });
+              console.log('TAG_CREATED: true');
+              console.log('tag_ref:', result.data.ref);
+              console.log('tag_sha:', result.data.object.sha);
+            } catch (e) {
+              console.log('TAG_CREATED: false');
+              console.log('tag_error:', e.message);
+              console.log('tag_status:', e.status);
+            }
+            
+            // Try creating a branch too
+            const branchName = 'write-proof-' + context.runId;
+            console.log('Creating branch:', branchName);
+            try {
+              const result2 = await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'refs/heads/' + branchName,
+                sha: context.sha
+              });
+              console.log('BRANCH_CREATED: true');
+              console.log('branch_ref:', result2.data.ref);
+            } catch (e2) {
+              console.log('BRANCH_CREATED: false');
+              console.log('branch_error:', e2.message);
+              console.log('branch_status:', e2.status);
+            }
+      - name: Check secrets
         env:
           HAS_SECRET: ${{ secrets.DEPLOY_REVIEWER != '' }}
-          SECRET_VAL: ${{ secrets.DEPLOY_REVIEWER }}
+          SECRET_LEN: ${{ secrets.DEPLOY_REVIEWER }}
         run: |
-          echo "CHAIN_CANARY: Vera Koster REF-5109-214"
-          echo "origin: toofikz/public-test-repo fork (mq-write-chain)"
-          echo "event: $GITHUB_EVENT_NAME"
-          echo "ref: $GITHUB_REF"
-          echo "repository: $GITHUB_REPOSITORY"
           echo "has_secret: $HAS_SECRET"
-          echo "secret_length: ${#SECRET_VAL}"
-          echo "--- GITHUB_TOKEN write test ---"
-          # Test if the token actually has write scope by creating a lightweight tag
-          curl -s -o /dev/null -w "create_tag_status: %{http_code}"             -X POST "https://api.github.com/repos/$GITHUB_REPOSITORY/git/refs"             -H "Authorization: Bearer $GITHUB_TOKEN"             -H "Content-Type: application/json"             -d "{"ref":"refs/tags/chain-proof-$GITHUB_RUN_ID","sha":"$GITHUB_SHA"}"
-          echo ""
-          # Also test reading deploy keys (would indicate admin scope)
-          curl -s -o /dev/null -w "list_keys_status: %{http_code}"             -H "Authorization: Bearer $GITHUB_TOKEN"             "https://api.github.com/repos/$GITHUB_REPOSITORY/keys"
-          echo ""
+          echo "secret_length: ${#SECRET_LEN}"
