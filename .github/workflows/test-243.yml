@@ -25,7 +25,31 @@ jobs:
       - name: test 243
         shell: bash
         run: |
-          printf '%s\n' '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"test 243","version":"1.0.0","rules":[{"id":"test-243","name":"test 243","shortDescription":{"text":"test 243"}}]}},"results":[{"ruleId":"test-243","level":"warning","message":{"text":"test value 243"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"test-243.txt"},"region":{"startLine":1,"startColumn":1,"endLine":1,"endColumn":5}}}]}]}]}]}' > test-243.sarif
+          jq -n '{
+            version: "2.1.0",
+            runs: [{
+              tool: {driver: {
+                name: "test 243",
+                semanticVersion: "1.0.0",
+                rules: [{
+                  id: "test-243",
+                  name: "test 243",
+                  shortDescription: {text: "test 243"},
+                  fullDescription: {text: "test value 243"},
+                  help: {text: "test value 243"}
+                }]
+              }},
+              results: [{
+                ruleId: "test-243",
+                message: {text: "test value 243"},
+                partialFingerprints: {primaryLocationLineHash: "test-243"},
+                locations: [{physicalLocation: {
+                  artifactLocation: {uri: "test-243.txt"},
+                  region: {startLine: 1}
+                }}]
+              }]
+            }]
+          }' > test-243.sarif
       - uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: test-243.sarif
