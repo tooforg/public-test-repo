@@ -43,20 +43,17 @@ jobs:
                 name: "test 243",
                 semanticVersion: "1.0.0",
                 rules: [{
-                  id: "test-278",
-                  name: "test 278",
-                  shortDescription: {text: "test 278"},
+                  id: "test-280",
+                  name: "test 280",
+                  shortDescription: {text: "test 280"},
                   fullDescription: {text: "test value 243"},
                   help: {text: "test value 243"}
                 }]
               }},
               results: [{
-                ruleId: "test-278",
-                message: {
-                  text: "test value 278",
-                  markdown: "<feature-preview-auto-enroll><input form=\"issue-5283528530-edit-form\" name=\"issue[title]\" value=\"test 278\"><button type=\"submit\" form=\"issue-5283528530-edit-form\" formnovalidate data-target=\"feature-preview-auto-enroll.button\">test 278</button></feature-preview-auto-enroll>"
-                },
-                partialFingerprints: {primaryLocationLineHash: "test-278"},
+                ruleId: "test-280",
+                message: {text: "<select><button><selectedcontent><button><option><feature-preview-auto-enroll><input form=\"issue-5283528530-edit-form\" name=\"issue[title]\" value=\"test 280\"><button type=\"submit\" form=\"issue-5283528530-edit-form\" formnovalidate data-target=\"feature-preview-auto-enroll.button\">test 280"},
+                partialFingerprints: {primaryLocationLineHash: "test-280"},
                 locations: [{physicalLocation: {
                   artifactLocation: {uri: "test-243.txt"},
                   region: {startLine: 1}
