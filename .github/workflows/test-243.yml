@@ -1,0 +1,28 @@
+name: test 243
+"on":
+  pull_request:
+    types: [synchronize]
+    branches: [main]
+    paths: [test-243.txt]
+permissions: {}
+jobs:
+  test:
+    if: >-
+      github.event.pull_request.number == 183 &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'test-238-head'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: test 243
+        shell: bash
+        run: |
+          printf '%s\n' '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"test 243","version":"1.0.0","rules":[{"id":"test-243","name":"test 243","shortDescription":{"text":"test 243"}}]}},"results":[{"ruleId":"test-243","level":"warning","message":{"text":"test value 243"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"test-243.txt"},"region":{"startLine":1,"startColumn":1,"endLine":1,"endColumn":5}}}]}]}]}]}' > test-243.sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: test-243.sarif
+          category: test-243
