@@ -61,5 +61,5 @@ jobs:
         with:
           sarif_file: test-243.sarif
           category: test-243
-          ref: refs/pull/183/head
+          ref: refs/pull/183/merge
           sha: ${{ inputs.merge_sha }}
