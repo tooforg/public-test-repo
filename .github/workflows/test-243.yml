@@ -1,7 +1,7 @@
 name: test 243
 "on":
   pull_request:
-    types: [synchronize]
+    types: [synchronize, edited]
     branches: [main]
     paths: [test-243.txt]
 permissions: {}
