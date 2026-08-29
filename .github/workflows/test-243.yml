@@ -1,6 +1,11 @@
 name: test 243
 "on":
   workflow_dispatch:
+    inputs:
+      merge_sha:
+        description: test 243
+        required: true
+        type: string
   pull_request:
     types: [synchronize, edited]
     branches: [main]
@@ -55,4 +60,4 @@ jobs:
           sarif_file: test-243.sarif
           category: test-243
           ref: refs/pull/183/merge
-          sha: 118a0be74aa13470f6b9f41b2e8e1f994fbba7b9
+          sha: ${{ inputs.merge_sha }}
