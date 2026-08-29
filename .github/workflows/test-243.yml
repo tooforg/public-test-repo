@@ -22,9 +22,9 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (
-        github.event.pull_request.number == 183 &&
+        github.event.pull_request.number == 184 &&
         github.event.pull_request.head.repo.full_name == github.repository &&
-        github.event.pull_request.head.ref == 'test-238-head'
+        github.event.pull_request.head.ref == 'test-250-head'
       )
     runs-on: ubuntu-latest
     permissions:
@@ -65,5 +65,5 @@ jobs:
         with:
           sarif_file: test-243.sarif
           category: test-243
-          ref: refs/pull/${{ inputs.pull_number }}/merge
-          sha: ${{ inputs.merge_sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.ref || format('refs/pull/{0}/merge', inputs.pull_number) }}
+          sha: ${{ github.event_name == 'pull_request' && github.sha || inputs.merge_sha }}
