@@ -52,7 +52,7 @@ jobs:
               }},
               results: [{
                 ruleId: "test-243",
-                message: {text: "test value 243"},
+                message: {text: "<div>test value 252</div>"},
                 partialFingerprints: {primaryLocationLineHash: "test-243"},
                 locations: [{physicalLocation: {
                   artifactLocation: {uri: "test-243.txt"},
