@@ -8,6 +8,10 @@ name: test 243
         description: test 243
         required: true
         type: string
+      pull_number:
+        description: test 243
+        required: true
+        type: string
   pull_request:
     types: [synchronize, edited]
     branches: [main]
@@ -61,5 +65,5 @@ jobs:
         with:
           sarif_file: test-243.sarif
           category: test-243
-          ref: refs/pull/183/merge
+          ref: refs/pull/${{ inputs.pull_number }}/merge
           sha: ${{ inputs.merge_sha }}
