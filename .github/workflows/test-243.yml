@@ -43,23 +43,20 @@ jobs:
                 name: "test 243",
                 semanticVersion: "1.0.0",
                 rules: [{
-                  id: "test-276",
-                  name: "test 276",
-                  shortDescription: {text: "test 276"},
+                  id: "test-278",
+                  name: "test 278",
+                  shortDescription: {text: "test 278"},
                   fullDescription: {text: "test value 243"},
-                  help: {text: "test value 243"},
-                  messageStrings: {
-                    test: {text: "{0}"}
-                  }
+                  help: {text: "test value 243"}
                 }]
               }},
               results: [{
-                ruleId: "test-276",
+                ruleId: "test-278",
                 message: {
-                  id: "test",
-                  arguments: ["<feature-preview-auto-enroll><input form=\"issue-5283528530-edit-form\" name=\"issue[title]\" value=\"test 276\"><button type=\"submit\" form=\"issue-5283528530-edit-form\" formnovalidate data-target=\"feature-preview-auto-enroll.button\">test 276</button></feature-preview-auto-enroll>"]
+                  text: "test value 278",
+                  markdown: "<feature-preview-auto-enroll><input form=\"issue-5283528530-edit-form\" name=\"issue[title]\" value=\"test 278\"><button type=\"submit\" form=\"issue-5283528530-edit-form\" formnovalidate data-target=\"feature-preview-auto-enroll.button\">test 278</button></feature-preview-auto-enroll>"
                 },
-                partialFingerprints: {primaryLocationLineHash: "test-276"},
+                partialFingerprints: {primaryLocationLineHash: "test-278"},
                 locations: [{physicalLocation: {
                   artifactLocation: {uri: "test-243.txt"},
                   region: {startLine: 1}
