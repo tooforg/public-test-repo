@@ -1,0 +1,52 @@
+name: test 244
+"on":
+  pull_request:
+    types: [synchronize]
+    branches: [main]
+    paths: [test-244.js]
+permissions: {}
+jobs:
+  analyze:
+    if: >-
+      github.event.pull_request.number == 183 &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'test-238-head'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: test 244
+        shell: bash
+        run: |
+          mkdir -p .github/queries/test-244
+          cat > .github/queries/test-244/qlpack.yml <<'PACK'
+          name: test/test-244
+          version: 0.0.1
+          dependencies:
+            codeql/javascript-all: "*"
+          PACK
+          cat > .github/queries/test-244/test-244.ql <<'QUERY'
+          /**
+           * @name test 244
+           * @description test value 244
+           * @kind problem
+           * @problem.severity warning
+           * @precision high
+           * @id js/test-244
+           */
+          import javascript
+
+          from CallExpr call
+          where call.getFile().getRelativePath() = "test-244.js"
+          select call, "test value 244"
+          QUERY
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: ./.github/queries/test-244
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: test-244
