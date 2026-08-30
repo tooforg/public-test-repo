@@ -1,20 +1,15 @@
-name: Public Canary
+name: Public test 507
 on:
   workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: read
 
 jobs:
-  canary:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - name: Create canary
-        run: echo "PUBLIC_CANARY_$(date +%s)" > canary.txt
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: public-canary
-          path: canary.txt
-          retention-days: 1
+      - name: test 507
+        run: |
+          printf '%s\n' 'test value 507'
+          sleep 300
