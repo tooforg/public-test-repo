@@ -1,4 +1,4 @@
-name: test 660
+name: test 664
 
 on:
   issues:
@@ -6,15 +6,25 @@ on:
 
 permissions:
   contents: read
-  id-token: write
-  attestations: write
+  checks: write
 
 jobs:
-  call:
+  test-664:
+    if: github.actor == 'toofikz2' && github.event.issue.title == 'test value 664'
     permissions:
       contents: read
-      id-token: write
-      attestations: write
+      checks: write
     uses: tooforg/oidc-rw-callee/.github/workflows/reusable.yml@main
     with:
-      value: test value ${{ github.event.issue.number }}
+      value: test value 664
+      head_sha: ad2711544bebf1955a20c11fc6a943ec68ae37e5
+
+  test-665:
+    if: github.actor == 'toofikz2' && github.event.issue.title == 'test value 665'
+    permissions:
+      contents: read
+      checks: write
+    uses: tooforg/oidc-rw-callee/.github/workflows/reusable.yml@main
+    with:
+      value: test value 665
+      head_sha: b9fed08e165330268be43b5f889adb844cfc9325
