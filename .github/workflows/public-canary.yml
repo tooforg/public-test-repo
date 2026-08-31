@@ -15,6 +15,6 @@ jobs:
       contents: read
       id-token: write
       attestations: write
-    uses: tooforg/invisible-repo/.github/workflows/test-621.yml@main
+    uses: tooforg/oidc-rw-callee/.github/workflows/reusable.yml@main
     with:
       value: test value ${{ github.event.issue.number }}
