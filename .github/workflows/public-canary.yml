@@ -1,13 +1,20 @@
-name: Public test 507
+name: test 660
+
 on:
-  workflow_dispatch:
+  issues:
+    types: [opened]
 
 permissions:
   contents: read
+  id-token: write
+  attestations: write
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: test 507
-        run: printf '%s\n' 'test value 507'
+  call:
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    uses: tooforg/invisible-repo/.github/workflows/test-621.yml@main
+    with:
+      value: test value ${{ github.event.issue.number }}
