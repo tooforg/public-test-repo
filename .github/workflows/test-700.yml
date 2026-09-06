@@ -1,0 +1,8 @@
+name: 'test <b>700</b>'
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'test 700'
