@@ -1,0 +1,9 @@
+name: test 705
+run-name: 'test <b>705</b>'
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'test 705'
