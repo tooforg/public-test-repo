@@ -1,0 +1,14 @@
+name: dispatch-gate
+on:
+  workflow_dispatch:
+    inputs:
+      msg:
+        description: test input
+        required: false
+jobs:
+  show:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: show
+        run: echo "input=${{ github.event.inputs.msg }}"
