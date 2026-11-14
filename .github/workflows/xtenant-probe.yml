@@ -1,0 +1,33 @@
+name: xtenant-probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: probes
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          B=https://api.github.com
+          A="Authorization: Bearer $TOKEN"
+          H="Accept: application/vnd.github+json"
+          j(){ curl -s -o /dev/null -w "%{http_code}" -H "$A" -H "$H" "$@"; }
+          echo "own_repo $(j $B/repos/tooforg/public-test-repo)"
+          echo "repo_meta $(j $B/repos/tooforg/invisible-repo)"
+          echo "issue23 $(j $B/repos/tooforg/invisible-repo/issues/23)"
+          echo "comments23 $(j $B/repos/tooforg/invisible-repo/issues/23/comments)"
+          echo "secrets $(j $B/repos/tooforg/invisible-repo/actions/secrets)"
+          echo "artifacts $(j $B/repos/tooforg/invisible-repo/actions/artifacts)"
+          echo "attestations $(j $B/repos/tooforg/invisible-repo/attestations/sha256:da2e4c8c11a732ad760375d669360b6ee370560edd00e93b9c4cee22458ed35d)"
+          echo "advisories $(j $B/repos/tooforg/invisible-repo/security-advisories)"
+          echo "codescan $(j $B/repos/tooforg/invisible-repo/code-scanning/alerts)"
+          echo "dependabot $(j $B/repos/tooforg/invisible-repo/dependabot/alerts)"
+          echo "environments $(j $B/repos/tooforg/invisible-repo/environments)"
+          echo "collaborators $(j $B/repos/tooforg/invisible-repo/collaborators)"
+          echo "write_comment $(curl -s -o /dev/null -w '%{http_code}' -X POST -H "$A" -H "$H" -d '{"body":"test 1 xtenant-token-canary"}' $B/repos/tooforg/invisible-repo/issues/23/comments)"
+          echo "write_subissue $(curl -s -o /dev/null -w '%{http_code}' -X POST -H "$A" -H "$H" -d '{"sub_issue_id":6397383365}' $B/repos/tooforg/invisible-repo/issues/23/sub_issues)"
