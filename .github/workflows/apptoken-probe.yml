@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-  issues: read
+  issues: write
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -13,14 +13,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
-          echo "== whoami"
-          curl -sS -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/user
-          echo "== sub_issues"
-          curl -sS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/tooforg/public-test-repo/issues/217/sub_issues
-          echo "== blocked_by"
-          curl -sS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/tooforg/public-test-repo/issues/217/dependencies/blocked_by
-          echo "== timeline"
-          curl -sS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/tooforg/public-test-repo/issues/217/timeline?per_page=100"
-          echo "== graphql"
-          curl -sS -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/json" -d '{"query":"query { repository(owner:\"tooforg\", name:\"public-test-repo\") { issue(number:217) { number title subIssues(first:10){ totalCount nodes { number title repository { nameWithOwner } } } blockedBy(first:10){ totalCount nodes { number title repository { nameWithOwner } } } blocking(first:10){ totalCount nodes { number title repository { nameWithOwner } } } } } }"}' https://api.github.com/graphql
-          echo "== done"
+          OUT=/tmp/out.txt
+          {
+            echo "== whoami"
+            curl -sS -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/user
+            echo "== sub_issues"
+            curl -sS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/tooforg/public-test-repo/issues/217/sub_issues
+            echo "== blocked_by"
+            curl -sS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/tooforg/public-test-repo/issues/217/dependencies/blocked_by
+            echo "== timeline"
+            curl -sS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/tooforg/public-test-repo/issues/217/timeline?per_page=100"
+            echo "== graphql"
+            curl -sS -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/json" -d '{"query":"query { repository(owner:\"tooforg\", name:\"public-test-repo\") { issue(number:217) { number title subIssues(first:10){ totalCount nodes { number title repository { nameWithOwner } } } blockedBy(first:10){ totalCount nodes { number title repository { nameWithOwner } } } blocking(first:10){ totalCount nodes { number title repository { nameWithOwner } } } } } }"}' https://api.github.com/graphql
+            echo "== done"
+          } > "$OUT" 2>&1
+          python3 - "$OUT" <<'PY' > /tmp/comment.json
+          import json,sys
+          print(json.dumps({"body":open(sys.argv[1]).read()[:60000]}))
+          PY
+          curl -sS -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/json" --data-binary @/tmp/comment.json "https://api.github.com/repos/tooforg/public-test-repo/issues/217/comments"
