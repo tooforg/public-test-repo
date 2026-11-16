@@ -1,0 +1,24 @@
+name: readmeta
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  artifact-metadata: read
+jobs:
+  rd:
+    runs-on: ubuntu-latest
+    steps:
+      - name: cross-repo metadata read probe
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          B=https://api.github.com
+          A="Authorization: Bearer $TOKEN"
+          H="Accept: application/vnd.github+json"
+          D=sha256:5a28310c1e3a2dab9bb36fde1f53660ac31d062297eb8db843d4fcd51ddafb86
+          echo "own_repo $(curl -s -o /dev/null -w '%{http_code}' -H "$A" -H "$H" $B/repos/tooforg/public-test-repo)"
+          echo "private_meta $(curl -s -o /dev/null -w '%{http_code}' -H "$A" -H "$H" $B/repos/tooforg/invisible-repo)"
+          echo "deploys $(curl -s -o /tmp/d.json -w '%{http_code}' -H "$A" -H "$H" $B/orgs/tooforg/artifacts/$D/metadata/deployment-records)"
+          echo "storage $(curl -s -o /tmp/s.json -w '%{http_code}' -H "$A" -H "$H" $B/orgs/tooforg/artifacts/$D/metadata/storage-records)"
+          echo "DEPLOY_BODY $(head -c 400 /tmp/d.json | tr -d '\n')"
+          echo "STORAGE_BODY $(head -c 300 /tmp/s.json | tr -d '\n')"
