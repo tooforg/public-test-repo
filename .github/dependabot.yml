@@ -4,5 +4,6 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+      timezone: "Europe/Amsterdam"
     target-branch: "main"
     open-pull-requests-limit: 10
